@@ -289,10 +289,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 }
             }
 
+            // TODO: something here is causing it
             if ((Config.FullAuto || Config.AutoFly) &&
                 Player.Available && !Player.Occupied &&
-                !IsTeleporting() &&
-                Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight] && !Svc.Condition[ConditionFlag.Jumping])
+                Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
             {
                 ExecuteJump();
                 return;
@@ -303,7 +303,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             {
                 if ((Config.FullAuto || Config.AutoMount) &&
                     Player.Available && !Player.Occupied &&
-                    !Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InCombat] && !Svc.Condition[ConditionFlag.Jumping] &&
+                    !Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InCombat] &&
                     !TransitionLock)
                 {
                     Svc.Log.Debug("Mounting...");
@@ -325,11 +325,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             }
             else if (nextFate is null)
             {
-                Svc.Log.Debug("Player.Available: " + Player.Available);
-                Svc.Log.Debug("Player.Occupied: " + Player.Occupied);
-                Svc.Log.Debug("Navmesh.IsRunning(): " + P.Navmesh.IsRunning());
-                Svc.Log.Debug("Navmesh.PathfindInProgress(): " + P.Navmesh.PathfindInProgress());
-
                 Svc.Log.Debug("No eligible fates.");
                 if (Config.ChangeInstances)
                 {
@@ -343,7 +338,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     }
 
     private bool IsTeleporting() => Player.IsCasting || Svc.Condition[ConditionFlag.BeingMoved] || Svc.Condition[ConditionFlag.BetweenAreas];
-    private bool IsMounting() => Svc.Condition[ConditionFlag.Jumping] || Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71];
+    private bool IsMounting() => Svc.Condition[ConditionFlag.Jumping] || Svc.Condition[ConditionFlag.Jumping61] || Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71];
 
     private void MoveToNextFate(ushort nextFateID)
     {
@@ -363,12 +358,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             if (closestAetheryte != 0)
             {
                 var aetheryteTravelDistance = Coords.GetDistanceToAetheryte(closestAetheryte, targetPos) + teleportTimePenalty;
-                Svc.Log.Info("Aetheryte travel distance is: " + aetheryteTravelDistance);
-                Svc.Log.Info("Player.IsCasting: " + Player.IsCasting + " " + Svc.Condition[ConditionFlag.Casting] + " " + Svc.Condition[ConditionFlag.Casting87]);
-                Svc.Log.Info("Player.BeingMoved: " + Svc.Condition[ConditionFlag.BeingMoved]);
-                Svc.Log.Info("Player.BetweenAreas: " + Svc.Condition[ConditionFlag.BetweenAreas] + " " + Svc.Condition[ConditionFlag.BetweenAreas51]);
-                Svc.Log.Info("Player.Mounting: " + Svc.Condition[ConditionFlag.Mounting] + " " + Svc.Condition[ConditionFlag.Mounting71]);
-                Svc.Log.Info("Player.Jumping: " + Svc.Condition[ConditionFlag.Jumping] + " " + Svc.Condition[ConditionFlag.Jumping61]);
                 if (aetheryteTravelDistance < directTravelDistance) // if the closest aetheryte is a shortcut, then teleport
                 {
                     if (!TransitionLock)
@@ -457,27 +446,13 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             }
             else // not targeting an aetheryte
             {
-                Svc.Log.Debug("Cannot find aetherytes nearby to target.");
                 var closestAetheryteDataId = Coords.GetNearestAetheryte((int)Player.Territory, Player.Position);
-                Svc.Log.Debug("Closest aetheryte id: " + closestAetheryteDataId);
                 var closestAetheryte = Svc.Objects
                     .Where(x => x is { ObjectKind: ObjectKind.Aetheryte })
                     .FirstOrDefault(x => x.DataId == closestAetheryteDataId);
-                //if (closestAetheryte?.IsTargetable ?? false)
-                Svc.Log.Debug("ClosestAetheryte.IsTargetable: " + closestAetheryte?.IsTargetable);
-                Svc.Log.Debug("Coords.GetDistanceToAetheryte: " + Coords.GetDistanceToAetheryte(closestAetheryteDataId, Player.Position));
                 if (Coords.GetDistanceToAetheryte(closestAetheryteDataId, Player.Position) < 50)
                 {
-                    Svc.Log.Debug("Setting target to aetheryte.");
                     Svc.Targets.Target = closestAetheryte;
-                    if (Svc.Targets.Target?.Name.TextValue.ToLower() == "aetheryte")
-                    {
-                        Svc.Log.Debug("Aetheryte target stuck");
-                    }
-                    else
-                    {
-                        Svc.Log.Debug("Aetheryte target did not stick");
-                    }
                 }
                 else
                 {
@@ -486,7 +461,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                         TransitionLock = true;
                         Svc.Log.Debug("Teleporting to nearby aetheryte: " + closestAetheryteDataId);
                         Coords.TeleportToAetheryte(closestAetheryteDataId);
-                        //P.Lifestream.Teleport(closestAetheryteDataId, 0);
                     }
                 }
             }
