@@ -3,6 +3,8 @@ using Dalamud.Game.Text.SeStringHandling.Payloads;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using Lumina.Excel.GeneratedSheets;
+using static IronPython.Modules._ast;
+using static IronPython.Runtime.Profiler;
 
 namespace Automaton.Utilities;
 
@@ -14,7 +16,7 @@ public static class Coords
     public static uint GetNearestAetheryte(int zoneID, Vector3 pos)
     {
         uint aetheryte = 0;
-        double distance = 0;
+        double distance = double.MaxValue;
         foreach (var data in GetSheet<Aetheryte>())
         {
             if (!data.IsAetheryte) continue;
@@ -30,8 +32,8 @@ public static class Coords
                 }
                 var AethersX = ConvertMapMarkerToMapCoordinate(mapMarker.X, 100);
                 var AethersY = ConvertMapMarkerToMapCoordinate(mapMarker.Y, 100);
-                var temp_distance = Math.Pow(AethersX - pos.X, 2) + Math.Pow(AethersY - pos.Z, 2);
-                if (aetheryte == default || temp_distance < distance)
+                var temp_distance = Vector3.Distance(new Vector3(AethersX, 0, AethersY), pos);
+                if (temp_distance < distance)
                 {
                     distance = temp_distance;
                     aetheryte = data.RowId;
@@ -42,13 +44,37 @@ public static class Coords
         return aetheryte;
     }
 
+    public static float GetDistanceToAetheryte(uint aetheryteId, Vector3 pos)
+    {
+        var mapMarker = FindRow<MapMarker>(m => m?.DataType == 3 && m.DataKey == aetheryteId);
+        if (mapMarker == null)
+        {
+            Svc.Log.Error($"Cannot find aetherytes position for aetheryteId: {aetheryteId}");
+            return float.MaxValue;
+        }
+        else
+        {
+            Svc.Log.Debug("Player.Position: " + Player.Position.X + " " + Player.Position.Y + " " + Player.Position.Z);
+            var AethersX = ConvertMapMarkerToRawPosition(mapMarker.X);
+            var AethersY = ConvertMapMarkerToRawPosition(mapMarker.Y);
+            Svc.Log.Debug("Aetheryte Position: " + AethersX + " " + AethersY);
+            return Vector3.Distance(new Vector3(AethersX, pos.Y, AethersY), pos);
+        }
+    }
+
     public static uint? GetPrimaryAetheryte(uint zoneID) => FindRow<Aetheryte>(a => a?.Territory.Value != null && a.Territory.Value.RowId == zoneID)?.RowId ?? null;
+
+    private static float ConvertMapMarkerToRawPosition(int pos, float scale = 100f)
+    {
+        var num = scale / 100f;
+        var rawPosition = ((float)(pos - 1024.0) / num);
+        return rawPosition;
+    }
 
     private static float ConvertMapMarkerToMapCoordinate(int pos, float scale)
     {
-        var num = scale / 100f;
-        var rawPosition = (int)((float)(pos - 1024.0) / num * 1000f);
-        return ConvertRawPositionToMapCoordinate(rawPosition, scale);
+        var rawPosition = ConvertMapMarkerToRawPosition(pos, scale);
+        return ConvertRawPositionToMapCoordinate((int)(rawPosition * 1000), scale);
     }
 
     private static float ConvertRawPositionToMapCoordinate(int pos, float scale)
