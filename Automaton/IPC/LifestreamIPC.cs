@@ -16,5 +16,9 @@ public class LifestreamIPC
     [EzIPC] public Func<bool> TeleportToFC;
     [EzIPC] public Func<bool> TeleportToApartment;
     [EzIPC] public Func<bool> IsBusy;
+    [EzIPC] public Func<bool> CanChangeInstance;
+    [EzIPC] public Func<int> GetNumberOfInstances;
+    [EzIPC] public Func<int> GetCurrentInstance;
+    [EzIPC] public Action<int> ChangeInstance;
     [EzIPC] public Action<string> ExecuteCommand;
 }

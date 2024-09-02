@@ -1,5 +1,6 @@
 using Automaton.IPC;
 using Automaton.UI;
+using Dalamud.Game.ClientState.Aetherytes;
 using Dalamud.Game.ClientState.Fates;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
@@ -9,9 +10,14 @@ using ECommons.SimpleGui;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
+using static Dalamud.Interface.Utility.Raii.ImRaii;
 using static ECommons.GameFunctions.ObjectFunctions;
+using static FFXIVClientStructs.FFXIV.Client.Game.UI.Telepo.Delegates;
+using static FFXIVClientStructs.FFXIV.Client.Network.NetworkModuleProxy.Delegates;
+using static IronPython.Modules._ast;
 
 namespace Automaton.Features;
 
@@ -29,6 +35,7 @@ public class DateWithDestinyConfiguration
     [BoolConfig] public bool EquipWatch = true;
     [BoolConfig] public bool SwapMinions = true;
     [BoolConfig] public bool SwapZones = true;
+    [BoolConfig] public bool ChangeInstances = true;
 
     [BoolConfig] public bool FullAuto = true;
     [BoolConfig(DependsOn = nameof(FullAuto))] public bool AutoMount = true;
@@ -180,6 +187,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         ImGuiX.DrawSection("Fate Window Options");
         ImGui.Checkbox("Show Time Remaining", ref Config.ShowFateTimeRemaining);
         ImGui.Checkbox("Show Bonus Indicator", ref Config.ShowFateBonusIndicator);
+        ImGui.Checkbox("Change Instances (Requires Lifestream)", ref Config.ChangeInstances);
     }
 
     public override void Enable()
@@ -198,12 +206,17 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     [CommandHandler("/vfate", "Opens the FATE tracker")]
     private void OnCommand(string command, string arguments) => Utils.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
 
+    // Used to ensure only one teleport is happening at a time.
+    // Set to true before calling the teleport and set to false after reaching destination.
+    // Prevents teleport spamming in the couple milliseconds between sending the teleport command and
+    // beginning of teleport cast.
+    private bool TransitionLock = false;
     private unsafe void OnUpdate(IFramework framework)
     {
-        if (!active || Svc.Fates.Count == 0 || Svc.Condition[ConditionFlag.Unknown57] || Svc.Condition[ConditionFlag.Casting]) return;
+        if (!active || Svc.Condition[ConditionFlag.Unknown57] || Svc.Condition[ConditionFlag.Casting] || IsMounting() || IsTeleporting()) return;
 
         // Update target position continually so we don't pingpong
-        if (Svc.Targets.Target != null)
+        if (Svc.Targets.Target != null && Svc.Targets.Target.ObjectKind == ObjectKind.BattleNpc)
         {
             var target = Svc.Targets.Target;
             TargetPos = target.Position;
@@ -216,7 +229,8 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
         if (P.Navmesh.IsRunning())
         {
-            if (DistanceToTarget() < 2 || (Svc.Targets.Target != null && DistanceToHitboxEdge(Svc.Targets.Target.HitboxRadius) <= (Config.StayInMeleeRange ? 0 : 15)))
+            if (Svc.Targets.Target?.ObjectKind == ObjectKind.BattleNpc &&
+                (DistanceToTarget() < 2 || (Svc.Targets.Target != null && DistanceToHitboxEdge(Svc.Targets.Target.HitboxRadius) <= (Config.StayInMeleeRange ? 0 : 15))))
                 P.Navmesh.Stop();
             else
                 return;
@@ -275,25 +289,113 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 }
             }
 
-            if ((Config.FullAuto || Config.AutoMount) && !Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.Casting])
-            {
-                ExecuteMount();
-                return;
-            }
-
-            if ((Config.FullAuto || Config.AutoFly) && Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
+            if ((Config.FullAuto || Config.AutoFly) &&
+                Player.Available && !Player.Occupied &&
+                !IsTeleporting() &&
+                Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight] && !Svc.Condition[ConditionFlag.Jumping])
             {
                 ExecuteJump();
                 return;
             }
 
             var nextFate = GetFates().FirstOrDefault();
-            if ((Config.FullAuto || Config.PathToFate) && nextFate is not null && Svc.Condition[ConditionFlag.InFlight] && !P.Navmesh.PathfindInProgress())
+            if (nextFate is not null)
             {
-                Svc.Log.Debug("Finding path to fate");
-                nextFateID = nextFate.FateId;
-                TargetPos = GetRandomPointInFate(nextFateID);
-                P.Navmesh.PathfindAndMoveTo(TargetPos, true);
+                if ((Config.FullAuto || Config.AutoMount) &&
+                    Player.Available && !Player.Occupied &&
+                    !Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InCombat] && !Svc.Condition[ConditionFlag.Jumping] &&
+                    !TransitionLock)
+                {
+                    Svc.Log.Debug("Mounting...");
+                    ExecuteMount();
+                    return;
+                }
+
+                if ((Config.FullAuto || Config.PathToFate) && Svc.Condition[ConditionFlag.InFlight] && !P.Navmesh.PathfindInProgress())
+                {
+                    // TODO: set flag
+                    Svc.Log.Debug("Finding path to fate");
+                    nextFateID = nextFate.FateId;
+                    //TargetPos = GetRandomPointInFate(nextFateID);
+
+                    unsafe { AgentMap.Instance()->SetFlagMapMarker(Svc.ClientState.TerritoryType, Svc.ClientState.MapId, FateManager.Instance()->GetFateById(nextFateID)->Location); }
+                    MoveToNextFate(nextFate.FateId);
+                    //P.Navmesh.PathfindAndMoveTo(TargetPos, true);
+                }
+            }
+            else if (nextFate is null)
+            {
+                Svc.Log.Debug("Player.Available: " + Player.Available);
+                Svc.Log.Debug("Player.Occupied: " + Player.Occupied);
+                Svc.Log.Debug("Navmesh.IsRunning(): " + P.Navmesh.IsRunning());
+                Svc.Log.Debug("Navmesh.PathfindInProgress(): " + P.Navmesh.PathfindInProgress());
+
+                Svc.Log.Debug("No eligible fates.");
+                if (Config.ChangeInstances)
+                {
+                    ChangeInstances();
+                }
+            }
+        }
+
+        if (Svc.Condition[ConditionFlag.InCombat] || Player.IsMoving)
+            TransitionLock = false; // teleport cancelled due to combat or movement
+    }
+
+    private bool IsTeleporting() => Player.IsCasting || Svc.Condition[ConditionFlag.BeingMoved] || Svc.Condition[ConditionFlag.BetweenAreas];
+    private bool IsMounting() => Svc.Condition[ConditionFlag.Jumping] || Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71];
+
+    private void MoveToNextFate(ushort nextFateID)
+    {
+        if (P.Navmesh.IsReady() &&
+            !Svc.Condition[ConditionFlag.InCombat] &&
+            Player.Available && !Player.Occupied)
+        {
+            var targetPos = GetRandomPointInFate(nextFateID);
+
+            var teleportTimePenalty = 100; // to account for how long teleport takes you
+
+            var directTravelDistance = Vector3.Distance(Player.Position, targetPos);
+            Svc.Log.Info("Direct flight distance is: " + directTravelDistance);
+
+            var closestAetheryte = Coords.GetNearestAetheryte(Svc.ClientState.TerritoryType, targetPos);
+            Svc.Log.Info("Closest aetheryte to next fate is: " + closestAetheryte);
+            if (closestAetheryte != 0)
+            {
+                var aetheryteTravelDistance = Coords.GetDistanceToAetheryte(closestAetheryte, targetPos) + teleportTimePenalty;
+                Svc.Log.Info("Aetheryte travel distance is: " + aetheryteTravelDistance);
+                Svc.Log.Info("Player.IsCasting: " + Player.IsCasting + " " + Svc.Condition[ConditionFlag.Casting] + " " + Svc.Condition[ConditionFlag.Casting87]);
+                Svc.Log.Info("Player.BeingMoved: " + Svc.Condition[ConditionFlag.BeingMoved]);
+                Svc.Log.Info("Player.BetweenAreas: " + Svc.Condition[ConditionFlag.BetweenAreas] + " " + Svc.Condition[ConditionFlag.BetweenAreas51]);
+                Svc.Log.Info("Player.Mounting: " + Svc.Condition[ConditionFlag.Mounting] + " " + Svc.Condition[ConditionFlag.Mounting71]);
+                Svc.Log.Info("Player.Jumping: " + Svc.Condition[ConditionFlag.Jumping] + " " + Svc.Condition[ConditionFlag.Jumping61]);
+                if (aetheryteTravelDistance < directTravelDistance) // if the closest aetheryte is a shortcut, then teleport
+                {
+                    if (!TransitionLock)
+                    {
+                        TransitionLock = true; // ensures only one teleport command goes through
+                        Svc.Log.Debug("Transition lock engaged.");
+                        //P.Lifestream.Teleport(closestAetheryte, 0);
+                        Coords.TeleportToAetheryte(closestAetheryte);
+                    }
+                    else
+                    {
+                        Svc.Log.Debug("Transition is locked.");
+                    }
+                }
+                else // if the closest aetheryte is too far away, just fly directly to the fate
+                {
+                    TransitionLock = false;
+                    if (P.Navmesh.IsReady() && !P.Navmesh.IsRunning() && !P.Navmesh.PathfindInProgress())
+                        P.Navmesh.PathfindAndMoveTo(targetPos, true);
+                }
+            }
+            else
+            {
+                // if there is no closest aetheryte (i.e. dravanian hinterlands with no aetherytes on the map)
+                // then fly directly to the fate
+                if (P.Navmesh.IsReady() && !P.Navmesh.IsRunning() && !P.Navmesh.PathfindInProgress())
+                    P.Navmesh.PathfindAndMoveTo(targetPos, true);
             }
         }
     }
@@ -309,6 +411,85 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
         {
             P.Navmesh.PathfindAndMoveTo(TargetPos, false);
+        }
+    }
+
+    private void ChangeInstances()
+    {
+        Svc.Log.Debug("Attempting to change instance");
+        if (P.Navmesh.IsReady() &&
+            !Svc.Condition[ConditionFlag.InCombat] &&
+            !Player.Occupied && Player.Available)
+        {
+            Svc.Log.Debug("Player is available");
+            if (Svc.Targets.Target?.Name.TextValue.ToLower() == "aetheryte")
+            {
+                Svc.Log.Debug("Found aetheryte target");
+                if (Svc.Condition[ConditionFlag.Mounted])
+                {
+                    Svc.Log.Debug("Player still mounted");
+                    ExecuteDismount();
+                }
+                else
+                {
+                    Svc.Log.Debug("Player not mounted");
+                    Svc.Log.Debug("Distance to aetheryte: " + DistanceToTarget());
+                    if (DistanceToTarget() < 10)
+                    {
+                        Svc.Log.Debug("Distance within 10");
+                        if (P.Lifestream.CanChangeInstance())
+                        {
+
+                            Svc.Log.Debug("Changing instances.");
+                            var nextInstance = ((P.Lifestream.GetCurrentInstance() + 1) % P.Lifestream.GetNumberOfInstances()) + 1; // instances are 1-indexed
+                            P.Lifestream.ChangeInstance(nextInstance);
+                            TransitionLock = false; // release lock after lifestream attempts to instance
+                        }
+                    }
+                    else
+                    {
+                        Svc.Log.Debug("Not close enough to change instance. Moving closer");
+                        // interact distance is between 8 and 10. less than 8 and you will run into the base of the aetheryte
+                        var closerToAetheryte = Svc.Targets.Target.Position - (Vector3.Normalize(Svc.Targets.Target.Position - Player.Position) * 8);
+                        P.Navmesh.PathfindAndMoveTo(closerToAetheryte, false);
+                    }
+                }
+            }
+            else // not targeting an aetheryte
+            {
+                Svc.Log.Debug("Cannot find aetherytes nearby to target.");
+                var closestAetheryteDataId = Coords.GetNearestAetheryte((int)Player.Territory, Player.Position);
+                Svc.Log.Debug("Closest aetheryte id: " + closestAetheryteDataId);
+                var closestAetheryte = Svc.Objects
+                    .Where(x => x is { ObjectKind: ObjectKind.Aetheryte })
+                    .FirstOrDefault(x => x.DataId == closestAetheryteDataId);
+                //if (closestAetheryte?.IsTargetable ?? false)
+                Svc.Log.Debug("ClosestAetheryte.IsTargetable: " + closestAetheryte?.IsTargetable);
+                Svc.Log.Debug("Coords.GetDistanceToAetheryte: " + Coords.GetDistanceToAetheryte(closestAetheryteDataId, Player.Position));
+                if (Coords.GetDistanceToAetheryte(closestAetheryteDataId, Player.Position) < 50)
+                {
+                    Svc.Log.Debug("Setting target to aetheryte.");
+                    Svc.Targets.Target = closestAetheryte;
+                    if (Svc.Targets.Target?.Name.TextValue.ToLower() == "aetheryte")
+                    {
+                        Svc.Log.Debug("Aetheryte target stuck");
+                    }
+                    else
+                    {
+                        Svc.Log.Debug("Aetheryte target did not stick");
+                    }
+                }
+                else
+                {
+                    if (!TransitionLock) // ensures only one teleport command goes through
+                    {
+                        TransitionLock = true;
+                        Svc.Log.Debug("Teleporting to nearby aetheryte: " + closestAetheryteDataId);
+                        Coords.TeleportToAetheryte(closestAetheryteDataId);
+                        //P.Lifestream.Teleport(closestAetheryteDataId, 0);
+                    }
+                }
+            }
         }
     }
 
@@ -369,7 +550,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private unsafe FateContext* CurrentFate => FateManager.Instance()->GetFateById(nextFateID);
 
     private unsafe float DistanceToFate() => Vector3.Distance(CurrentFate->Location, Svc.ClientState.LocalPlayer!.Position);
-    private unsafe float DistanceToTarget() => Vector3.Distance(TargetPos, Svc.ClientState.LocalPlayer!.Position);
+    private unsafe float DistanceToTarget() => (Svc.Targets.Target is not null) ? Vector3.Distance(Svc.Targets.Target.Position, Svc.ClientState.LocalPlayer!.Position) : 0;
 
     //Will be negative if inside hitbox
     private unsafe float DistanceToHitboxEdge(float hitboxRadius) => DistanceToTarget() - hitboxRadius;
