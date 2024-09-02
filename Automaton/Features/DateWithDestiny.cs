@@ -213,7 +213,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private bool TransitionLock = false;
     private unsafe void OnUpdate(IFramework framework)
     {
-        if (!active || Svc.Condition[ConditionFlag.Unknown57] || Svc.Condition[ConditionFlag.Casting] || IsMounting() || IsTeleporting()) return;
+        if (!active || !Player.Available ||
+            Svc.Condition[ConditionFlag.Unknown57] || Svc.Condition[ConditionFlag.Unknown96] ||
+            IsMounting() || IsTeleporting() || Svc.Condition[ConditionFlag.Casting]) return;
 
         // Update target position continually so we don't pingpong
         if (Svc.Targets.Target != null && Svc.Targets.Target.ObjectKind == ObjectKind.BattleNpc)
@@ -290,8 +292,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             }
 
             // TODO: something here is causing it
-            if ((Config.FullAuto || Config.AutoFly) &&
-                Player.Available && !Player.Occupied &&
+            if ((Config.FullAuto || Config.AutoFly) && !Player.Occupied &&
                 Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
             {
                 ExecuteJump();
@@ -301,8 +302,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             var nextFate = GetFates().FirstOrDefault();
             if (nextFate is not null)
             {
-                if ((Config.FullAuto || Config.AutoMount) &&
-                    Player.Available && !Player.Occupied &&
+                if ((Config.FullAuto || Config.AutoMount) && !Player.Occupied &&
                     !Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InCombat] &&
                     !TransitionLock)
                 {
@@ -343,8 +343,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private void MoveToNextFate(ushort nextFateID)
     {
         if (P.Navmesh.IsReady() &&
-            !Svc.Condition[ConditionFlag.InCombat] &&
-            Player.Available && !Player.Occupied)
+            !Svc.Condition[ConditionFlag.InCombat] && !Player.Occupied)
         {
             var targetPos = GetRandomPointInFate(nextFateID);
 
@@ -406,9 +405,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private void ChangeInstances()
     {
         Svc.Log.Debug("Attempting to change instance");
-        if (P.Navmesh.IsReady() &&
-            !Svc.Condition[ConditionFlag.InCombat] &&
-            !Player.Occupied && Player.Available)
+        if (P.Navmesh.IsReady() && !Player.Occupied && !Svc.Condition[ConditionFlag.InCombat])
         {
             Svc.Log.Debug("Player is available");
             if (Svc.Targets.Target?.Name.TextValue.ToLower() == "aetheryte")
