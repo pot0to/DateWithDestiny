@@ -1,23 +1,19 @@
 using Automaton.IPC;
 using Automaton.UI;
-using Dalamud.Game.ClientState.Aetherytes;
 using Dalamud.Game.ClientState.Fates;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Interface.Utility.Raii;
 using ECommons.GameFunctions;
 using ECommons.SimpleGui;
+using ECommons.Throttlers;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
-using static Dalamud.Interface.Utility.Raii.ImRaii;
 using static ECommons.GameFunctions.ObjectFunctions;
-using static FFXIVClientStructs.FFXIV.Client.Game.UI.Telepo.Delegates;
-using static FFXIVClientStructs.FFXIV.Client.Network.NetworkModuleProxy.Delegates;
-using static IronPython.Modules._ast;
 
 namespace Automaton.Features;
 
@@ -50,6 +46,8 @@ public class DateWithDestinyConfiguration
 
     [BoolConfig] public bool ShowFateTimeRemaining;
     [BoolConfig] public bool ShowFateBonusIndicator;
+
+    [BoolConfig] public bool AbortTeleportOnTimeout;
 }
 
 [Tweak, Requirement(NavmeshIPC.Name, NavmeshIPC.Repo)]
@@ -211,13 +209,13 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     // Prevents teleport spamming in the couple milliseconds between sending the teleport command and
     // beginning of teleport cast, as well as during the couple milliseconds between the cast finishing
     // and the screen going black.
-    private uint TeleportLock = 0;
+    private static readonly object TeleportLock = new();
 
     // Used to ensure only one mount action is happening at a time. Can be used for: summoning mount,
     // jumping on mount, jumping to fly, landing, jumping off mount.
     // Prevents spamming in the milliseconds between actions registering and ConditionFlag changes reflecting.
-    private bool MountingLock = false;
-    private bool FlyingLock = false;
+    private static readonly object MountingLock = new();
+    private static readonly bool FlyingLock = new();
 
     private int SuccessiveInstanceChanges = 0;
 
@@ -225,18 +223,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     private unsafe void OnUpdate(IFramework framework)
     {
-        if (!active || !Player.Available ||
-            Svc.Condition[ConditionFlag.Unknown57] || Svc.Condition[ConditionFlag.Unknown96] ||
-            IsMounting() || IsTeleporting()) return;
-
-        // teleport cancelled due to combat or movement
-        if (TeleportLock != 0 &&
-            (Svc.Condition[ConditionFlag.InCombat] || Player.IsMoving || Coords.GetDistanceToAetheryte(TeleportLock, Player.Position) < _distanceToTargetAetheryte))
-            TeleportLock = 0;
-
-        if (MountingLock && Svc.Condition[ConditionFlag.Mounted]) MountingLock = false;
-
-        if (FlyingLock && Svc.Condition[ConditionFlag.InFlight]) FlyingLock = false;
+        if (!active || !Player.Available || Svc.Condition[ConditionFlag.Unknown57] || P.TaskManager.IsBusy) return;
 
         // Update target position continually so we don't pingpong
         if (Svc.Targets.Target != null && Svc.Targets.Target.ObjectKind == ObjectKind.BattleNpc)
@@ -251,11 +238,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         }
 
         if (Svc.Condition[ConditionFlag.Casting]) return; // don't move while casting to prevent cast looping
-
-        //Svc.Log.Info("Lock status: " + TeleportLock);
-        //Svc.Log.Info("Distance to lock: " + (TeleportLock == 0 ? 0 : Coords.GetDistanceToAetheryte(TeleportLock, Player.Position)));
-        Svc.Log.Info("MountingLock status: " + MountingLock);
-        Svc.Log.Info("FlyingLock status: " + FlyingLock);
 
         if (P.Navmesh.IsRunning())
         {
@@ -327,49 +309,28 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             {
                 if (!Svc.Condition[ConditionFlag.InFlight])
                 {
-                    if (!MountingLock && !FlyingLock)
-                    {
-                        FlyingLock = true;
-                        ExecuteJump();
-                        return;
-                    }
-                }
-                else
-                {
-                    // status is in flight
-                    FlyingLock = false;
+                    ExecuteJump();
+                    return;
                 }
             }
 
             var nextFate = GetFates().FirstOrDefault();
-            if (nextFate is not null && TeleportLock == 0)
+            if (nextFate is not null)
             {
                 if ((Config.FullAuto || Config.AutoMount) && !Player.Occupied && !Svc.Condition[ConditionFlag.InCombat])
                 {
                     if (!Svc.Condition[ConditionFlag.Mounted])
                     {
-                        if (!MountingLock)
-                        {
-                            Svc.Log.Debug("Mounting...");
-                            MountingLock = true; // guarantees mount is only called once
-                            ExecuteMount();
-                            return;
-                        }
+                        Svc.Log.Debug("Mounting...");
+                        ExecuteMount();
+                        return;
                     }
                     else
                     {
-                        MountingLock = false;
                         if (!Svc.Condition[ConditionFlag.InFlight])
                         {
-                            if (!FlyingLock)
-                            {
-                                ExecuteJump();
-                                return;
-                            }
-                        }
-                        else
-                        {
-                            FlyingLock = false;
+                            ExecuteJump();
+                            return;
                         }
                     }
                 }
@@ -379,8 +340,8 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                     // TODO: set flag
                     Svc.Log.Debug("Finding path to fate");
                     nextFateID = nextFate.FateId;
-                    //TargetPos = GetRandomPointInFate(nextFateID);
 
+                    SuccessiveInstanceChanges = 0;
                     unsafe { AgentMap.Instance()->SetFlagMapMarker(Svc.ClientState.TerritoryType, Svc.ClientState.MapId, FateManager.Instance()->GetFateById(nextFateID)->Location); }
                     MoveToNextFate(nextFate.FateId);
                     //P.Navmesh.PathfindAndMoveTo(TargetPos, true);
@@ -400,8 +361,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private bool IsTeleporting() => Player.IsCasting || Svc.Condition[ConditionFlag.BeingMoved] || Svc.Condition[ConditionFlag.BetweenAreas];
     private bool IsMounting() => Svc.Condition[ConditionFlag.Jumping] || Svc.Condition[ConditionFlag.Jumping61] || Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71];
 
-    private void MoveToNextFate(ushort nextFateID)
+    private unsafe void MoveToNextFate(ushort nextFateID)
     {
+
         if (P.Navmesh.IsReady() &&
             !Svc.Condition[ConditionFlag.InCombat] && !Player.Occupied)
         {
@@ -422,21 +384,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 Svc.Log.Info("Travel distance via aetheryte: " + aetheryteTravelDistance);
                 if (aetheryteTravelDistance < directTravelDistance) // if the closest aetheryte is a shortcut, then teleport
                 {
-                    if (TeleportLock == 0)
-                    {
-                        Svc.Log.Debug("Transition lock engaged."); // ensures only one teleport command goes through
-                        TeleportLock = closestAetheryte;
-                        //P.Lifestream.Teleport(closestAetheryte, 0);
-                        Coords.TeleportToAetheryte(closestAetheryte);
-                    }
-                    else
-                    {
-                        Svc.Log.Debug("Transition is locked.");
-                    }
+                    ExecuteTeleport(closestAetheryte);
                 }
                 else // if the closest aetheryte is too far away, just fly directly to the fate
                 {
-                    TeleportLock = 0;
                     if (P.Navmesh.IsReady() && !P.Navmesh.IsRunning() && !P.Navmesh.PathfindInProgress())
                         P.Navmesh.PathfindAndMoveTo(targetPos, true);
                 }
@@ -466,85 +417,76 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         }
     }
 
-    private void ChangeInstances()
+    private unsafe void ExecuteTeleport(uint closestAetheryteDataId)
     {
-        Svc.Log.Debug("Attempting to change instance");
-        if (P.Navmesh.IsReady() && !Player.Occupied && !Svc.Condition[ConditionFlag.InCombat])
+        P.TaskManager.AbortOnTimeout = Config.AbortTeleportOnTimeout;
+        P.TaskManager.Enqueue(() => Telepo.Instance()->Teleport(closestAetheryteDataId, 0));
+        P.TaskManager.Enqueue(() => Player.Object.IsCasting);
+        P.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.BetweenAreas]);
+        P.TaskManager.Enqueue(() => !Svc.Condition[ConditionFlag.BetweenAreas]);
+    }
+
+    private unsafe void ChangeInstances()
+    {
+        Svc.Log.Debug("ChangeInstances()");
+        var numberOfInstances = P.Lifestream.GetNumberOfInstances();
+        if (SuccessiveInstanceChanges >= numberOfInstances - 1)
         {
-            Svc.Log.Debug("Player is available");
-            if (Svc.Targets.Target?.Name.TextValue.ToLower() == "aetheryte")
-            {
-                TeleportLock = 0;
-                Svc.Log.Debug("Found aetheryte target");
-                if (Svc.Condition[ConditionFlag.Mounted])
-                {
-                    Svc.Log.Debug("Player still mounted");
-                    ExecuteDismount();
-                }
-                else
-                {
-                    Svc.Log.Debug("Player not mounted");
-                    Svc.Log.Debug("Distance to aetheryte: " + DistanceToTarget());
-                    if (DistanceToTarget() < 10)
-                    {
-                        Svc.Log.Debug("Distance within 10");
-                        if (P.Lifestream.CanChangeInstance())
-                        {
-                            var numberOfInstances = P.Lifestream.GetNumberOfInstances();
-                            if (SuccessiveInstanceChanges < numberOfInstances - 1)
-                            {
-                                Svc.Log.Debug("Changing instances.");
-                                SuccessiveInstanceChanges += 1;
-                                var nextInstance = ((P.Lifestream.GetCurrentInstance() + 1) % numberOfInstances) + 1; // instances are 1-indexed
-                                P.Lifestream.ChangeInstance(nextInstance);
-                            }
-                            else
-                            {
-                                SuccessiveInstanceChanges = 0;
-                                // wait 10 seconds before trying again to prevent instance change spam
-                                System.Threading.Thread.Sleep(10000);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Svc.Log.Debug("Not close enough to change instance. Moving closer");
-                        // interact distance is between 8 and 10. less than 8 and you will run into the base of the aetheryte
-                        var closerToAetheryte = Svc.Targets.Target.Position - (Vector3.Normalize(Svc.Targets.Target.Position - Player.Position) * 8);
-                        P.Navmesh.PathfindAndMoveTo(closerToAetheryte, false);
-                    }
-                }
-            }
-            else // not targeting an aetheryte
-            {
-                var closestAetheryteDataId = Coords.GetNearestAetheryte((int)Player.Territory, Player.Position);
-                var closestAetheryte = Svc.Objects
-                    .Where(x => x is { ObjectKind: ObjectKind.Aetheryte })
-                    .FirstOrDefault(x => x.DataId == closestAetheryteDataId);
-                if (Coords.GetDistanceToAetheryte(closestAetheryteDataId, Player.Position) < _distanceToTargetAetheryte)
-                {
-                    TeleportLock = 0;
-                    Svc.Targets.Target = closestAetheryte;
-                }
-                else
-                {
-                    if (TeleportLock == 0) // ensures only one teleport command goes through
-                    {
-                        TeleportLock = closestAetheryteDataId;
-                        Svc.Log.Debug("Teleporting to nearby aetheryte: " + closestAetheryteDataId);
-                        Coords.TeleportToAetheryte(closestAetheryteDataId);
-                    }
-                    else
-                    {
-                        Svc.Log.Debug("Teleporting is locked.");
-                    }
-                }
-            }
+            SuccessiveInstanceChanges = 0;
+            //System.Threading.Thread.Sleep(10000);
+            EzThrottler.Throttle("Cycled through all instances. Waiting 10s.", 10000);
+            return;
         }
+
+        Svc.Log.Debug("SuccessiveInstanceChanges low.");
+        var closestAetheryteDataId = Coords.GetNearestAetheryte((int)Player.Territory, Player.Position);
+        var closestAetheryteGameObject = Svc.Objects
+            .Where(x => x is { ObjectKind: ObjectKind.Aetheryte })
+            .FirstOrDefault(x => x.DataId == closestAetheryteDataId);
+        if (Coords.GetDistanceToAetheryte(closestAetheryteDataId, Player.Position) >= _distanceToTargetAetheryte)
+        {
+            Svc.Log.Debug("Teleporting to nearby aetheryte: " + closestAetheryteDataId);
+            ExecuteTeleport(closestAetheryteDataId);
+            return;
+        }
+
+        Svc.Log.Debug("Within 50 of aetheryte.");
+        if (Svc.Targets.Target?.ObjectKind != ObjectKind.Aetheryte)
+        {
+            Svc.Targets.Target = closestAetheryteGameObject;
+            return;
+        }
+
+        Svc.Log.Debug("Targeting aetheryte.");
+        Svc.Log.Debug("Attempting to change instance");
+        if (DistanceToTarget() > 10)
+        {
+            Svc.Log.Debug("Not close enough to change instance. Moving closer");
+            // interact distance is between 8 and 10. less than 8 and you will run into the base of the aetheryte
+            var closerToAetheryte = Svc.Targets.Target.Position - (Vector3.Normalize(Svc.Targets.Target.Position - Player.Position) * 8);
+            P.Navmesh.PathfindAndMoveTo(closerToAetheryte, false);
+            return;
+        }
+
+        if (!P.Lifestream.CanChangeInstance()) return;
+
+        Svc.Log.Debug("Lifestream not busy.");
+
+        Svc.Log.Debug("Changing instances.");
+        SuccessiveInstanceChanges += 1;
+        var nextInstance = ((P.Lifestream.GetCurrentInstance() + 1) % numberOfInstances) + 1; // instances are 1-indexed
+        P.Lifestream.ChangeInstance(nextInstance);
     }
 
     private unsafe void ExecuteActionSafe(ActionType type, uint id) => action.Exec(() => ActionManager.Instance()->UseAction(type, id));
-    private void ExecuteMount() => ExecuteActionSafe(ActionType.GeneralAction, 24); // flying mount roulette
+    private void ExecuteMount()
+    {
+        P.TaskManager.AbortOnTimeout = Config.AbortTeleportOnTimeout;
+        P.TaskManager.Enqueue(() => ExecuteActionSafe(ActionType.GeneralAction, 24)); // flying mount roulette
+        P.TaskManager.Enqueue(() => Player.Object.IsCasting);
+        P.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71]);
+        P.TaskManager.Enqueue(() => !(Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71]));
+    }
     private void ExecuteDismount() => ExecuteActionSafe(ActionType.GeneralAction, 23);
     private void ExecuteJump() => ExecuteActionSafe(ActionType.GeneralAction, 2);
 
