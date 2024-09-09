@@ -41,6 +41,7 @@ internal class FateTrackerUI : Window
         ImGui.TableNextColumn();
         ImGui.TextUnformatted($"Status: {(_tweak.active ? "on" : "off")} (Yo-Kai: {(_tweak.Config.YokaiMode ? "on" : "off")})");
         ImGui.TableNextColumn();
+        //ImGui.SetColumnOffset(1, ImGui.GetContentRegionAvail().X - 2 * ImGuiX.IconUnitWidth() - ImGuiHelpers.GetButtonSize("1500").X);
         if (ImGuiComponents.IconButton(!_tweak.active ? FontAwesomeIcon.Play : FontAwesomeIcon.Stop))
         {
             _tweak.active ^= true;
