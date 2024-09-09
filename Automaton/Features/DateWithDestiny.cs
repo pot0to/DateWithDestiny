@@ -242,18 +242,33 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             return;
         }
 
+        // Update target position continually so we don't pingpong
+        if (Svc.Targets.Target != null)
+        {
+            var target = Svc.Targets.Target;
+            TargetPos = target.Position;
+            if ((Config.FullAuto || Config.AutoMoveToMobs) && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
+            {
+                TargetAndMoveToEnemy(target);
+                return;
+            }
+        }
+
         if (_ticks % 50 == 0)
         {
             Svc.Log.Info("State: " + State.ToString());
         }
         _ticks += 1;
 
-        var cf = FateManager.Instance()->CurrentFate;
-
+        var cf = CurrentFate;
         switch (State)
         {
             case DateWithDestinyState.Ready:
-                if (Svc.Condition[ConditionFlag.InFlight])
+                if (cf != null)
+                {
+                    State = DateWithDestinyState.InCombat;
+                }
+                else if (Svc.Condition[ConditionFlag.InFlight])
                 {
                     State = DateWithDestinyState.Flying;
                 }
@@ -261,14 +276,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 {
                     State = DateWithDestinyState.Mounted;
                 }
-                else if (!Svc.Condition[ConditionFlag.InCombat])
-                {
-                    State = DateWithDestinyState.Standing;
-                }
                 else
                 {
-                    Svc.Log.Info("Unknown state");
-                    State = DateWithDestinyState.Unknown;
+                    State = DateWithDestinyState.Standing;
                 }
                 return;
             case DateWithDestinyState.Standing:
@@ -303,6 +313,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 {
                     State = DateWithDestinyState.Flying;
                 }
+                else
+                {
+                    ExecuteJump();
+                }
                 return;
             case DateWithDestinyState.Flying:
                 var nextFate = GetFates().FirstOrDefault();
@@ -322,7 +336,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 else if (nextFate is null)
                 {
                     Svc.Log.Debug("No eligible fates. Number of instances: " + P.Lifestream.GetNumberOfInstances());
-                    if (Config.ChangeInstances && P.Lifestream.GetNumberOfInstances() > 1)
+                    if (Config.ChangeInstances && P.Lifestream.GetNumberOfInstances() != 1)
                     {
                         State = DateWithDestinyState.ChangingInstances;
                         ChangeInstances();
@@ -347,23 +361,30 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 return;
             case DateWithDestinyState.InCombat:
                 if (cf == null && !Svc.Condition[ConditionFlag.InCombat])
+                {
                     State = DateWithDestinyState.Ready;
+                    FateID = 0;
+                }
                 else
                 {
+                    FateID = cf->FateId;
                     if (Svc.Condition[ConditionFlag.Mounted]) ExecuteDismount();
 
-                    if (Svc.Condition[ConditionFlag.InCombat])
+                    var target = Svc.Targets.Target;
+                    if (target == null && Svc.Condition[ConditionFlag.InCombat])
                     {
-                        var target = GetMobTargetingPlayer();
-                        if (target != null) TargetAndMoveToEnemy(target);
+                        target = GetMobTargetingPlayer();
+                    }
+                    if (target == null || target.ObjectKind != ObjectKind.BattleNpc)
+                    {
+                        target = GetFateMob();
                     }
 
                     // Update target position continually so we don't pingpong
-                    if (Svc.Targets.Target != null && Svc.Targets.Target.ObjectKind == ObjectKind.BattleNpc)
+                    if (target != null)
                     {
-                        var target = Svc.Targets.Target;
                         TargetPos = target.Position;
-                        if ((Config.FullAuto || Config.AutoMoveToMobs) && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
+                        if ((Config.FullAuto || Config.AutoMoveToMobs) && (Svc.Targets.Target == null || !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15))))
                         {
                             TargetAndMoveToEnemy(target);
                             return;
@@ -375,14 +396,15 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                         if (Svc.Targets.Target?.ObjectKind == ObjectKind.BattleNpc &&
                             (DistanceToTarget() < 2 || (Svc.Targets.Target != null && DistanceToHitboxEdge(Svc.Targets.Target.HitboxRadius) <= (Config.StayInMeleeRange ? 0 : 15))))
                             P.Navmesh.Stop();
-                        else
-                            return;
                     }
                 }
                 return;
             case DateWithDestinyState.ChangingInstances:
                 if (ChangeInstances())
+                {
                     State = DateWithDestinyState.Ready;
+                    Svc.Log.Info("State is Ready");
+                }
                 return;
             case DateWithDestinyState.ExchangingVouchers:
                 // TODO: not implemented
@@ -492,7 +514,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     private unsafe bool ChangeInstances()
     {
-        Svc.Log.Debug("ChangeInstances()");
+        if (_ticks % 50 == 0)
+        {
+            Svc.Log.Debug("ChangeInstances()");
+        }
         var numberOfInstances = P.Lifestream.GetNumberOfInstances();
         if (_successiveInstanceChanges >= numberOfInstances - 1)
         {
@@ -502,7 +527,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             return false;
         }
 
-        Svc.Log.Debug("SuccessiveInstanceChanges low.");
+        if (_ticks % 50 == 0)
+        {
+            Svc.Log.Debug("SuccessiveInstanceChanges low.");
+        }
         var closestAetheryteDataId = Coords.GetNearestAetheryte((int)Player.Territory, Player.Position);
         var closestAetheryteGameObject = Svc.Objects
             .Where(x => x is { ObjectKind: ObjectKind.Aetheryte })
@@ -514,19 +542,28 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             return false;
         }
 
-        Svc.Log.Debug("Within 50 of aetheryte.");
+        if (_ticks % 50 == 0)
+        {
+            Svc.Log.Debug("Within 50 of aetheryte.");
+        }
         if (Svc.Targets.Target?.ObjectKind != ObjectKind.Aetheryte)
         {
             Svc.Targets.Target = closestAetheryteGameObject;
             return false;
         }
 
-        Svc.Log.Debug("Targeting aetheryte.");
-        Svc.Log.Debug("Attempting to change instance");
+        if (_ticks % 50 == 0)
+        {
+            Svc.Log.Debug("Targeting aetheryte.");
+            Svc.Log.Debug("Attempting to change instance");
+        }
         // If too far away to target or "target is too far below you" error
         if (DistanceToTarget() > 10 || Player.Position.Y - Svc.Targets.Target.Position.Y > 2)
         {
-            Svc.Log.Debug("Not close enough to change instance. Moving closer");
+            if (_ticks % 50 == 0)
+            {
+                Svc.Log.Debug("Not close enough to change instance. Moving closer");
+            }
             // interact distance is between 8 and 10. less than 8 and you will run into the base of the aetheryte
             var closerToAetheryte = Svc.Targets.Target.Position - (Vector3.Normalize(Svc.Targets.Target.Position - Player.Position) * 8);
             closerToAetheryte.Y = Math.Min(closerToAetheryte.Y, Svc.Targets.Target.Position.Y + 1);
@@ -544,7 +581,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         Svc.Log.Debug("Changing instances.");
 
         var nextInstance = ((P.Lifestream.GetCurrentInstance() + 1) % numberOfInstances) + 1; // instances are 1-indexed
-        P.Lifestream.ChangeInstance(nextInstance);
+
+        P.TaskManager.Enqueue(() => P.Lifestream.ChangeInstance(nextInstance)); // flying mount roulette
+        P.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.BetweenAreas] || Svc.Condition[ConditionFlag.BetweenAreas51]);
+        P.TaskManager.Enqueue(() => !(Svc.Condition[ConditionFlag.BetweenAreas] || Svc.Condition[ConditionFlag.BetweenAreas51]));
 
         _successiveInstanceChanges += 1;
 
@@ -562,8 +602,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private void ExecuteDismount() => ExecuteActionSafe(ActionType.GeneralAction, 23);
     private void ExecuteJump()
     {
-        State = DateWithDestinyState.Jumping;
-        ExecuteActionSafe(ActionType.GeneralAction, 2);
+        P.TaskManager.Enqueue(() => ExecuteActionSafe(ActionType.GeneralAction, 2));
+        P.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.Jumping] || Svc.Condition[ConditionFlag.Jumping61]);
+        P.TaskManager.Enqueue(() => !(Svc.Condition[ConditionFlag.Jumping] || Svc.Condition[ConditionFlag.Jumping61]));
     }
 
     private IOrderedEnumerable<IFate> GetFates() => Svc.Fates.Where(FateConditions)
@@ -596,7 +637,8 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         && x.IsHostile()
         && x.ObjectKind == ObjectKind.BattleNpc
         && x.SubKind == (byte)BattleNpcSubKind.Enemy
-        && (x.Struct() != null && x.Struct()->FateId == FateID) && Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius)
+        && (x.Struct() != null && x.Struct()->FateId == FateID)
+        && Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius)
         // Prioritize Forlorns if configured
         .OrderByDescending(x => Config.PrioritizeForlorns && ForlornIDs.Contains(x.DataId))
         // Prioritize enemies targeting us
@@ -606,7 +648,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         // Prioritize closest enemy        
         .ThenBy(x => Math.Floor(Vector3.Distance(Player.Position, x.Position)))
         // Prioritize lowest HP enemy
-        .ThenBy(x => (x as ICharacter)?.CurrentHp)
         .FirstOrDefault();
 
     private unsafe uint CurrentCompanion => Svc.ClientState.LocalPlayer!.Character()->CompanionObject->Character.GameObject.BaseId;
