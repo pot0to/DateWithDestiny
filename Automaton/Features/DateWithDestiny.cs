@@ -260,7 +260,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         }
         _ticks += 1;
 
-        var cf = CurrentFate;
+        var cf = FateManager.Instance()->CurrentFate;
         switch (State)
         {
             case DateWithDestinyState.Ready:
@@ -322,6 +322,13 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 var nextFate = GetFates().FirstOrDefault();
                 if (nextFate is not null)
                 {
+
+
+                    if (Config.YokaiMode)
+                    {
+                        YokaiMode();
+                    }
+
                     if (!P.Navmesh.PathfindInProgress())
                     {
                         Svc.Log.Debug("Finding path to fate");
@@ -360,7 +367,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 // TODO: not implemented
                 return;
             case DateWithDestinyState.InCombat:
-                if (cf == null && !Svc.Condition[ConditionFlag.InCombat])
+                if (cf == null && !Svc.Condition[ConditionFlag.InCombat] && !Player.IsCasting)
                 {
                     State = DateWithDestinyState.Ready;
                     FateID = 0;
@@ -410,38 +417,36 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 // TODO: not implemented
                 return;
         };
+    }
 
-        //if (cf is null)
-        //{
-        //    if (Config.YokaiMode)
-        //{
-        //    if (YokaiMinions.Contains(CurrentCompanion))
-        //    {
-        //        if (Config.EquipWatch && HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
-        //            Player.Equip(15222);
+    private void YokaiMode()
+    {
+        if (YokaiMinions.Contains(CurrentCompanion))
+        {
+            if (Config.EquipWatch && HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
+                Player.Equip(15222);
 
-        //        var medal = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
-        //        if (GetItemCount(medal) >= 10)
-        //        {
-        //            Svc.Log.Debug("Have 10 of the relevant Legendary Medal. Swapping minions");
-        //            var minion = Yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && GetItemCount(x.Medal) < 10 && GetItemCount(x.Weapon) < 1).Minion;
-        //            if (Config.SwapMinions && minion != default)
-        //            {
-        //                ECommons.Automation.Chat.Instance.SendMessage($"/minion {GetRow<Companion>(minion)?.Singular}");
-        //                return;
-        //            }
-        //        }
+            var medal = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
+            if (GetItemCount(medal) >= 10)
+            {
+                Svc.Log.Debug("Have 10 of the relevant Legendary Medal. Swapping minions");
+                var minion = Yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && GetItemCount(x.Medal) < 10 && GetItemCount(x.Weapon) < 1).Minion;
+                if (Config.SwapMinions && minion != default)
+                {
+                    ECommons.Automation.Chat.Instance.SendMessage($"/minion {GetRow<Companion>(minion)?.Singular}");
+                    return;
+                }
+            }
 
-        //        var zones = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
-        //        if (Config.SwapZones && !zones.Contains((Z)Svc.ClientState.TerritoryType))
-        //        {
-        //            Svc.Log.Debug("Have Yokai minion equipped but not in appropiate zone. Teleporting");
-        //            if (!Svc.Condition[ConditionFlag.Casting])
-        //                Telepo.Instance()->Teleport((uint)Coords.GetPrimaryAetheryte((uint)zones.First())!, 0);
-        //            return;
-        //        }
-        //    }
-        //}
+            var zones = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
+            if (Config.SwapZones && !zones.Contains((Z)Svc.ClientState.TerritoryType))
+            {
+                Svc.Log.Debug("Have Yokai minion equipped but not in appropiate zone. Teleporting");
+                if (!Svc.Condition[ConditionFlag.Casting])
+                    ExecuteTeleport((uint)Coords.GetPrimaryAetheryte((uint)zones.First())!);
+                return;
+            }
+        }
     }
 
     private unsafe void MoveToNextFate(ushort nextFateID)
@@ -597,14 +602,14 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         P.TaskManager.Enqueue(() => ExecuteActionSafe(ActionType.GeneralAction, 24)); // flying mount roulette
         P.TaskManager.Enqueue(() => Player.Object.IsCasting);
         P.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71] || Svc.Condition[ConditionFlag.Unknown57]);
-        P.TaskManager.Enqueue(() => !(Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71] || Svc.Condition[ConditionFlag.Unknown57]));
+        P.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.Mounted] || Svc.Condition[ConditionFlag.Mounted2]);
     }
     private void ExecuteDismount() => ExecuteActionSafe(ActionType.GeneralAction, 23);
     private void ExecuteJump()
     {
         P.TaskManager.Enqueue(() => ExecuteActionSafe(ActionType.GeneralAction, 2));
         P.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.Jumping] || Svc.Condition[ConditionFlag.Jumping61]);
-        P.TaskManager.Enqueue(() => !(Svc.Condition[ConditionFlag.Jumping] || Svc.Condition[ConditionFlag.Jumping61]));
+        P.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.InFlight]);
     }
 
     private IOrderedEnumerable<IFate> GetFates() => Svc.Fates.Where(FateConditions)
@@ -638,7 +643,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         && x.ObjectKind == ObjectKind.BattleNpc
         && x.SubKind == (byte)BattleNpcSubKind.Enemy
         && (x.Struct() != null && x.Struct()->FateId == FateID)
-        && Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius)
+        )//&& Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius)
         // Prioritize Forlorns if configured
         .OrderByDescending(x => Config.PrioritizeForlorns && ForlornIDs.Contains(x.DataId))
         // Prioritize enemies targeting us
