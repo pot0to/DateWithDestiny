@@ -13,7 +13,6 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
-using System.Drawing;
 using static ECommons.GameFunctions.ObjectFunctions;
 
 namespace Automaton.Features;
@@ -229,11 +228,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     [CommandHandler("/vfate", "Opens the FATE tracker")]
     private void OnCommand(string command, string arguments) => Utils.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
 
-    private int SuccessiveInstanceChanges = 0;
-
+    private int _successiveInstanceChanges = 0;
     private readonly int _distanceToTargetAetheryte = 50; // object.IsTargetable has a larger range than actually clickable
-
-    private int _ticks = 0;
+    private int _ticks = 0; // to not spam logging
 
     private unsafe void OnUpdate(IFramework framework)
     {
@@ -302,7 +299,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 }
                 return;
             case DateWithDestinyState.Jumping:
-                // TODO: something here is causing it
                 if (Svc.Condition[ConditionFlag.InFlight])
                 {
                     State = DateWithDestinyState.Flying;
@@ -317,7 +313,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                         Svc.Log.Debug("Finding path to fate");
                         nextFateID = nextFate.FateId;
 
-                        SuccessiveInstanceChanges = 0;
+                        _successiveInstanceChanges = 0;
                         unsafe { AgentMap.Instance()->SetFlagMapMarker(Svc.ClientState.TerritoryType, Svc.ClientState.MapId, FateManager.Instance()->GetFateById(nextFateID)->Location); }
                         State = DateWithDestinyState.MovingToFate;
                         MoveToNextFate(nextFate.FateId);
@@ -498,9 +494,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     {
         Svc.Log.Debug("ChangeInstances()");
         var numberOfInstances = P.Lifestream.GetNumberOfInstances();
-        if (SuccessiveInstanceChanges >= numberOfInstances - 1)
+        if (_successiveInstanceChanges >= numberOfInstances - 1)
         {
-            SuccessiveInstanceChanges = 0;
+            _successiveInstanceChanges = 0;
             //System.Threading.Thread.Sleep(10000);
             EzThrottler.Throttle("Cycled through all instances. Waiting 10s.", 10000);
             return false;
@@ -550,7 +546,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         var nextInstance = ((P.Lifestream.GetCurrentInstance() + 1) % numberOfInstances) + 1; // instances are 1-indexed
         P.Lifestream.ChangeInstance(nextInstance);
 
-        SuccessiveInstanceChanges += 1;
+        _successiveInstanceChanges += 1;
 
         return true;
     }
