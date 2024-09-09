@@ -3,8 +3,6 @@ using Dalamud.Game.Text.SeStringHandling.Payloads;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using Lumina.Excel.GeneratedSheets;
-using static IronPython.Modules._ast;
-using static IronPython.Runtime.Profiler;
 
 namespace Automaton.Utilities;
 

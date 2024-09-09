@@ -14,6 +14,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
+using System.Drawing;
 using static ECommons.GameFunctions.ObjectFunctions;
 
 namespace Automaton.Features;
@@ -48,7 +49,23 @@ public class DateWithDestinyConfiguration
     [BoolConfig] public bool ShowFateTimeRemaining;
     [BoolConfig] public bool ShowFateBonusIndicator;
 
-    [BoolConfig] public bool AbortTeleportOnTimeout;
+    [BoolConfig] public bool AbortTasksOnTimeout;
+}
+
+public enum DateWithDestinyState
+{
+    Unknown,
+    Ready,
+    Standing,
+    Mounting,
+    Mounted,
+    Jumping,
+    Flying,
+    MovingToFate,
+    InteractingWithNpc,
+    InCombat,
+    ChangingInstances,
+    ExchangingVouchers
 }
 
 [Tweak, Requirement(NavmeshIPC.Name, NavmeshIPC.Repo)]
@@ -61,6 +78,14 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private static Vector3 TargetPos;
     private readonly Throttle action = new();
     private Random random = null!;
+
+    public DateWithDestinyState State { get; set; }
+
+    public DateWithDestiny()
+    {
+        P.TaskManager.AbortOnTimeout = Config.AbortTasksOnTimeout;
+        State = DateWithDestinyState.Ready;
+    }
 
     private enum Z
     {
@@ -205,184 +230,228 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     [CommandHandler("/vfate", "Opens the FATE tracker")]
     private void OnCommand(string command, string arguments) => Utils.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
 
-    // Used to ensure only one teleport is happening at a time.
-    // Set to target aetheryte id before calling teleport and set to 0 after reaching destination.
-    // Prevents teleport spamming in the couple milliseconds between sending the teleport command and
-    // beginning of teleport cast, as well as during the couple milliseconds between the cast finishing
-    // and the screen going black.
-    private static readonly object TeleportLock = new();
-
-    // Used to ensure only one mount action is happening at a time. Can be used for: summoning mount,
-    // jumping on mount, jumping to fly, landing, jumping off mount.
-    // Prevents spamming in the milliseconds between actions registering and ConditionFlag changes reflecting.
-    private static readonly object MountingLock = new();
-    private static readonly bool FlyingLock = new();
-
     private int SuccessiveInstanceChanges = 0;
 
     private readonly int _distanceToTargetAetheryte = 50; // object.IsTargetable has a larger range than actually clickable
 
+    private int _ticks = 0;
+
     private unsafe void OnUpdate(IFramework framework)
     {
-        if (!active || !Player.Available || Svc.Condition[ConditionFlag.Unknown57] || P.TaskManager.IsBusy) return;
+        if (!Player.Available || P.TaskManager.IsBusy) return;
 
-        // Update target position continually so we don't pingpong
-        if (Svc.Targets.Target != null && Svc.Targets.Target.ObjectKind == ObjectKind.BattleNpc)
+        if (!active)
         {
-            var target = Svc.Targets.Target;
-            TargetPos = target.Position;
-            if ((Config.FullAuto || Config.AutoMoveToMobs) && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
-            {
-                TargetAndMoveToEnemy(target);
-                return;
-            }
+            State = DateWithDestinyState.Ready;
+            return;
         }
 
-        if (Svc.Condition[ConditionFlag.Casting]) return; // don't move while casting to prevent cast looping
-
-        if (P.Navmesh.IsRunning())
+        if (_ticks % 50 == 0)
         {
-            if (Svc.Targets.Target?.ObjectKind == ObjectKind.BattleNpc &&
-                (DistanceToTarget() < 2 || (Svc.Targets.Target != null && DistanceToHitboxEdge(Svc.Targets.Target.HitboxRadius) <= (Config.StayInMeleeRange ? 0 : 15))))
-                P.Navmesh.Stop();
-            else
-                return;
+            Svc.Log.Info("State: " + State.ToString());
         }
+        _ticks += 1;
 
         var cf = FateManager.Instance()->CurrentFate;
-        if (cf is not null)
+
+        switch (State)
         {
-            fateMaxLevel = cf->MaxLevel;
-            FateID = cf->FateId;
-            if (Svc.Condition[ConditionFlag.Mounted])
-            {
-                ExecuteDismount();
-            }
-
-            var target = GetFateMob();
-            if (target != null) TargetAndMoveToEnemy(target);
-        }
-        else
-            FateID = 0;
-
-        if (cf is null)
-        {
-            if (Svc.Condition[ConditionFlag.InCombat])
-            {
-                if (Svc.Condition[ConditionFlag.Mounted]) ExecuteDismount();
-                var target = GetMobTargetingPlayer();
-                if (target != null) TargetAndMoveToEnemy(target);
-            }
-
-            if (Config.YokaiMode)
-            {
-                if (YokaiMinions.Contains(CurrentCompanion))
+            case DateWithDestinyState.Ready:
+                if (Svc.Condition[ConditionFlag.InFlight])
                 {
-                    if (Config.EquipWatch && HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
-                        Player.Equip(15222);
-
-                    var medal = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
-                    if (GetItemCount(medal) >= 10)
-                    {
-                        Svc.Log.Debug("Have 10 of the relevant Legendary Medal. Swapping minions");
-                        var minion = Yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && GetItemCount(x.Medal) < 10 && GetItemCount(x.Weapon) < 1).Minion;
-                        if (Config.SwapMinions && minion != default)
-                        {
-                            ECommons.Automation.Chat.Instance.SendMessage($"/minion {GetRow<Companion>(minion)?.Singular}");
-                            return;
-                        }
-                    }
-
-                    var zones = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
-                    if (Config.SwapZones && !zones.Contains((Z)Svc.ClientState.TerritoryType))
-                    {
-                        Svc.Log.Debug("Have Yokai minion equipped but not in appropiate zone. Teleporting");
-                        if (!Svc.Condition[ConditionFlag.Casting])
-                            Telepo.Instance()->Teleport((uint)Coords.GetPrimaryAetheryte((uint)zones.First())!, 0);
-                        return;
-                    }
+                    State = DateWithDestinyState.Flying;
                 }
-            }
-
-            // TODO: something here is causing it
-            if ((Config.FullAuto || Config.AutoFly) && !Player.Occupied &&
-                Svc.Condition[ConditionFlag.Mounted])
-            {
-                if (!Svc.Condition[ConditionFlag.InFlight])
+                else if (Svc.Condition[ConditionFlag.Mounted] || Svc.Condition[ConditionFlag.Mounted2])
                 {
+                    State = DateWithDestinyState.Mounted;
+                }
+                else if (!Svc.Condition[ConditionFlag.InCombat])
+                {
+                    State = DateWithDestinyState.Standing;
+                }
+                else
+                {
+                    Svc.Log.Info("Unknown state");
+                    State = DateWithDestinyState.Unknown;
+                }
+                return;
+            case DateWithDestinyState.Standing:
+                if (Svc.Condition[ConditionFlag.InCombat])
+                {
+                    State = DateWithDestinyState.InCombat;
+                }
+                else if ((Config.FullAuto || Config.AutoMount) && !Player.Occupied)
+                {
+                    State = DateWithDestinyState.Mounting;
+                    Svc.Log.Debug("Mounting...");
+                    ExecuteMount();
+                }
+                return;
+            case DateWithDestinyState.Mounting:
+                if (Svc.Condition[ConditionFlag.Mounted])
+                    State = DateWithDestinyState.Mounted;
+                else
+                {
+                    ExecuteMount();
+                }
+                return;
+            case DateWithDestinyState.Mounted:
+                if ((Config.FullAuto || Config.AutoFly) && !Player.Occupied && Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
+                {
+                    State = DateWithDestinyState.Jumping;
                     ExecuteJump();
-                    return;
                 }
-            }
-
-            var nextFate = GetFates().FirstOrDefault();
-            if (nextFate is not null)
-            {
-                if ((Config.FullAuto || Config.AutoMount) && !Player.Occupied && !Svc.Condition[ConditionFlag.InCombat])
+                return;
+            case DateWithDestinyState.Jumping:
+                // TODO: something here is causing it
+                if (Svc.Condition[ConditionFlag.InFlight])
                 {
-                    if (!Svc.Condition[ConditionFlag.Mounted])
+                    State = DateWithDestinyState.Flying;
+                }
+                return;
+            case DateWithDestinyState.Flying:
+                var nextFate = GetFates().FirstOrDefault();
+                if (nextFate is not null)
+                {
+                    if (!P.Navmesh.PathfindInProgress())
                     {
-                        Svc.Log.Debug("Mounting...");
-                        ExecuteMount();
-                        return;
+                        Svc.Log.Debug("Finding path to fate");
+                        nextFateID = nextFate.FateId;
+
+                        SuccessiveInstanceChanges = 0;
+                        unsafe { AgentMap.Instance()->SetFlagMapMarker(Svc.ClientState.TerritoryType, Svc.ClientState.MapId, FateManager.Instance()->GetFateById(nextFateID)->Location); }
+                        State = DateWithDestinyState.MovingToFate;
+                        MoveToNextFate(nextFate.FateId);
+                    }
+                }
+                else if (nextFate is null)
+                {
+                    Svc.Log.Debug("No eligible fates. Number of instances: " + P.Lifestream.GetNumberOfInstances());
+                    if (Config.ChangeInstances && P.Lifestream.GetNumberOfInstances() > 1)
+                    {
+                        State = DateWithDestinyState.ChangingInstances;
+                        ChangeInstances();
+                    }
+                }
+                return;
+            case DateWithDestinyState.MovingToFate:
+                if (!P.Navmesh.PathfindInProgress() && !P.Navmesh.IsRunning())
+                {
+                    if (cf is not null)
+                    {
+                        State = DateWithDestinyState.InCombat;
                     }
                     else
                     {
-                        if (!Svc.Condition[ConditionFlag.InFlight])
+                        State = DateWithDestinyState.Ready;
+                    }
+                }
+                return;
+            case DateWithDestinyState.InteractingWithNpc:
+                // TODO: not implemented
+                return;
+            case DateWithDestinyState.InCombat:
+                if (cf == null && !Svc.Condition[ConditionFlag.InCombat])
+                    State = DateWithDestinyState.Ready;
+                else
+                {
+                    if (Svc.Condition[ConditionFlag.Mounted]) ExecuteDismount();
+
+                    if (Svc.Condition[ConditionFlag.InCombat])
+                    {
+                        var target = GetMobTargetingPlayer();
+                        if (target != null) TargetAndMoveToEnemy(target);
+                    }
+
+                    // Update target position continually so we don't pingpong
+                    if (Svc.Targets.Target != null && Svc.Targets.Target.ObjectKind == ObjectKind.BattleNpc)
+                    {
+                        var target = Svc.Targets.Target;
+                        TargetPos = target.Position;
+                        if ((Config.FullAuto || Config.AutoMoveToMobs) && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
                         {
-                            ExecuteJump();
+                            TargetAndMoveToEnemy(target);
                             return;
                         }
                     }
-                }
 
-                if ((Config.FullAuto || Config.PathToFate) && Svc.Condition[ConditionFlag.InFlight] && !P.Navmesh.PathfindInProgress())
-                {
-                    // TODO: set flag
-                    Svc.Log.Debug("Finding path to fate");
-                    nextFateID = nextFate.FateId;
+                    if (P.Navmesh.IsRunning())
+                    {
+                        if (Svc.Targets.Target?.ObjectKind == ObjectKind.BattleNpc &&
+                            (DistanceToTarget() < 2 || (Svc.Targets.Target != null && DistanceToHitboxEdge(Svc.Targets.Target.HitboxRadius) <= (Config.StayInMeleeRange ? 0 : 15))))
+                            P.Navmesh.Stop();
+                        else
+                            return;
+                    }
+                }
+                return;
+            case DateWithDestinyState.ChangingInstances:
+                if (ChangeInstances())
+                    State = DateWithDestinyState.Ready;
+                return;
+            case DateWithDestinyState.ExchangingVouchers:
+                // TODO: not implemented
+                return;
+        };
 
-                    SuccessiveInstanceChanges = 0;
-                    unsafe { AgentMap.Instance()->SetFlagMapMarker(Svc.ClientState.TerritoryType, Svc.ClientState.MapId, FateManager.Instance()->GetFateById(nextFateID)->Location); }
-                    MoveToNextFate(nextFate.FateId);
-                    //P.Navmesh.PathfindAndMoveTo(TargetPos, true);
-                }
-            }
-            else if (nextFate is null)
-            {
-                Svc.Log.Debug("No eligible fates.");
-                if (Config.ChangeInstances)
-                {
-                    ChangeInstances();
-                }
-            }
-        }
+        //if (cf is null)
+        //{
+        //    if (Config.YokaiMode)
+        //{
+        //    if (YokaiMinions.Contains(CurrentCompanion))
+        //    {
+        //        if (Config.EquipWatch && HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
+        //            Player.Equip(15222);
+
+        //        var medal = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
+        //        if (GetItemCount(medal) >= 10)
+        //        {
+        //            Svc.Log.Debug("Have 10 of the relevant Legendary Medal. Swapping minions");
+        //            var minion = Yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && GetItemCount(x.Medal) < 10 && GetItemCount(x.Weapon) < 1).Minion;
+        //            if (Config.SwapMinions && minion != default)
+        //            {
+        //                ECommons.Automation.Chat.Instance.SendMessage($"/minion {GetRow<Companion>(minion)?.Singular}");
+        //                return;
+        //            }
+        //        }
+
+        //        var zones = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
+        //        if (Config.SwapZones && !zones.Contains((Z)Svc.ClientState.TerritoryType))
+        //        {
+        //            Svc.Log.Debug("Have Yokai minion equipped but not in appropiate zone. Teleporting");
+        //            if (!Svc.Condition[ConditionFlag.Casting])
+        //                Telepo.Instance()->Teleport((uint)Coords.GetPrimaryAetheryte((uint)zones.First())!, 0);
+        //            return;
+        //        }
+        //    }
+        //}
     }
-
-    private bool IsTeleporting() => Player.IsCasting || Svc.Condition[ConditionFlag.BeingMoved] || Svc.Condition[ConditionFlag.BetweenAreas];
-    private bool IsMounting() => Svc.Condition[ConditionFlag.Jumping] || Svc.Condition[ConditionFlag.Jumping61] || Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71];
 
     private unsafe void MoveToNextFate(ushort nextFateID)
     {
-
         if (P.Navmesh.IsReady() &&
             !Svc.Condition[ConditionFlag.InCombat] && !Player.Occupied)
         {
             var targetPos = GetRandomPointInFate(nextFateID);
 
             var teleportTimePenalty = 100; // to account for how long teleport takes you
-
             var directTravelDistance = Vector3.Distance(Player.Position, targetPos);
-            Svc.Log.Info("Player.Position: " + Player.Position.X + " " + Player.Position.Y + " " + Player.Position.Z);
-            Svc.Log.Info("targetPos: " + targetPos.X + " " + targetPos.Y + " " + targetPos.Z);
-            Svc.Log.Info("Direct flight distance is: " + directTravelDistance);
-
             var closestAetheryte = Coords.GetNearestAetheryte(Svc.ClientState.TerritoryType, targetPos);
-            Svc.Log.Info("Closest aetheryte to next fate is: " + closestAetheryte);
+
+            if (_ticks % 50 == 0)
+            {
+                Svc.Log.Info("Player.Position: " + Player.Position.X + " " + Player.Position.Y + " " + Player.Position.Z);
+                Svc.Log.Info("targetPos: " + targetPos.X + " " + targetPos.Y + " " + targetPos.Z);
+                Svc.Log.Info("Direct flight distance is: " + directTravelDistance);
+                Svc.Log.Info("Closest aetheryte to next fate is: " + closestAetheryte);
+            }
             if (closestAetheryte != 0)
             {
                 var aetheryteTravelDistance = Coords.GetDistanceToAetheryte(closestAetheryte, targetPos) + teleportTimePenalty;
-                Svc.Log.Info("Travel distance via aetheryte: " + aetheryteTravelDistance);
+                if (_ticks % 50 == 0)
+                {
+                    Svc.Log.Info("Travel distance via aetheryte: " + aetheryteTravelDistance);
+                }
                 if (aetheryteTravelDistance < directTravelDistance) // if the closest aetheryte is a shortcut, then teleport
                 {
                     ExecuteTeleport(closestAetheryte);
@@ -420,14 +489,13 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     private unsafe void ExecuteTeleport(uint closestAetheryteDataId)
     {
-        P.TaskManager.AbortOnTimeout = Config.AbortTeleportOnTimeout;
         P.TaskManager.Enqueue(() => Telepo.Instance()->Teleport(closestAetheryteDataId, 0));
         P.TaskManager.Enqueue(() => Player.Object.IsCasting);
         P.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.BetweenAreas]);
         P.TaskManager.Enqueue(() => !Svc.Condition[ConditionFlag.BetweenAreas]);
     }
 
-    private unsafe void ChangeInstances()
+    private unsafe bool ChangeInstances()
     {
         Svc.Log.Debug("ChangeInstances()");
         var numberOfInstances = P.Lifestream.GetNumberOfInstances();
@@ -436,7 +504,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             SuccessiveInstanceChanges = 0;
             //System.Threading.Thread.Sleep(10000);
             EzThrottler.Throttle("Cycled through all instances. Waiting 10s.", 10000);
-            return;
+            return false;
         }
 
         Svc.Log.Debug("SuccessiveInstanceChanges low.");
@@ -448,48 +516,60 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         {
             Svc.Log.Debug("Teleporting to nearby aetheryte: " + closestAetheryteDataId);
             ExecuteTeleport(closestAetheryteDataId);
-            return;
+            return false;
         }
 
         Svc.Log.Debug("Within 50 of aetheryte.");
         if (Svc.Targets.Target?.ObjectKind != ObjectKind.Aetheryte)
         {
             Svc.Targets.Target = closestAetheryteGameObject;
-            return;
+            return false;
         }
 
         Svc.Log.Debug("Targeting aetheryte.");
         Svc.Log.Debug("Attempting to change instance");
-        if (DistanceToTarget() > 10)
+        // If too far away to target or "target is too far below you" error
+        if (DistanceToTarget() > 10 || Player.Position.Y - Svc.Targets.Target.Position.Y > 2)
         {
             Svc.Log.Debug("Not close enough to change instance. Moving closer");
             // interact distance is between 8 and 10. less than 8 and you will run into the base of the aetheryte
             var closerToAetheryte = Svc.Targets.Target.Position - (Vector3.Normalize(Svc.Targets.Target.Position - Player.Position) * 8);
+            closerToAetheryte.Y = Math.Min(closerToAetheryte.Y, Svc.Targets.Target.Position.Y + 1);
             P.Navmesh.PathfindAndMoveTo(closerToAetheryte, false);
-            return;
+            return false;
         }
 
-        if (!P.Lifestream.CanChangeInstance()) return;
+        if (!P.Lifestream.CanChangeInstance())
+        {
+            Svc.Log.Debug("Cannot change instances at this time.");
+            return false;
+        }
 
         Svc.Log.Debug("Lifestream not busy.");
-
         Svc.Log.Debug("Changing instances.");
-        SuccessiveInstanceChanges += 1;
+
         var nextInstance = ((P.Lifestream.GetCurrentInstance() + 1) % numberOfInstances) + 1; // instances are 1-indexed
         P.Lifestream.ChangeInstance(nextInstance);
+
+        SuccessiveInstanceChanges += 1;
+
+        return true;
     }
 
     private unsafe void ExecuteActionSafe(ActionType type, uint id) => action.Exec(() => ActionManager.Instance()->UseAction(type, id));
     private void ExecuteMount()
     {
-        P.TaskManager.AbortOnTimeout = Config.AbortTeleportOnTimeout;
         P.TaskManager.Enqueue(() => ExecuteActionSafe(ActionType.GeneralAction, 24)); // flying mount roulette
         P.TaskManager.Enqueue(() => Player.Object.IsCasting);
-        P.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71]);
-        P.TaskManager.Enqueue(() => !(Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71]));
+        P.TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71] || Svc.Condition[ConditionFlag.Unknown57]);
+        P.TaskManager.Enqueue(() => !(Svc.Condition[ConditionFlag.Mounting] || Svc.Condition[ConditionFlag.Mounting71] || Svc.Condition[ConditionFlag.Unknown57]));
     }
     private void ExecuteDismount() => ExecuteActionSafe(ActionType.GeneralAction, 23);
-    private void ExecuteJump() => ExecuteActionSafe(ActionType.GeneralAction, 2);
+    private void ExecuteJump()
+    {
+        State = DateWithDestinyState.Jumping;
+        ExecuteActionSafe(ActionType.GeneralAction, 2);
+    }
 
     private IOrderedEnumerable<IFate> GetFates() => Svc.Fates.Where(FateConditions)
         .OrderByDescending(x =>
