@@ -4,6 +4,7 @@ using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using ECommons.ImGuiMethods;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 
@@ -30,14 +31,26 @@ internal class FateTrackerUI : Window
 
     public override bool DrawConditions() => Player.Available;
 
-    public override void Draw()
+    public override unsafe void Draw()
     {
+        using var table = ImRaii.Table("Fates", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.ScrollX | ImGuiTableFlags.NoHostExtendX);
+        if (!table)
+            return;
+
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn();
         ImGui.TextUnformatted($"Status: {(_tweak.active ? "on" : "off")} (Yo-Kai: {(_tweak.Config.YokaiMode ? "on" : "off")})");
+        ImGui.TableNextColumn();
         if (ImGuiComponents.IconButton(!_tweak.active ? FontAwesomeIcon.Play : FontAwesomeIcon.Stop))
         {
             _tweak.active ^= true;
             P.Navmesh.Stop();
         }
+        ImGui.SameLine();
+        ImGui.Image(Svc.Texture.GetFromGameIcon(new Dalamud.Interface.Textures.GameIconLookup(065071)).GetWrapOrEmpty().ImGuiHandle, new Vector2(ImGuiX.IconUnitHeight()));
+        ImGui.SameLine();
+        ImGui.TextUnformatted(InventoryManager.Instance()->GetInventoryItemCount(26807).ToString());
+
         //ImGui.SameLine();
         //if (ImGuiComponents.IconButtonWithText((FontAwesomeIcon)0xf002, "Browse"))
         //{
@@ -46,10 +59,6 @@ internal class FateTrackerUI : Window
         //        SelectedTerritory = x;
         //    });
         //}
-
-        using var table = ImRaii.Table("Fates", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.ScrollX | ImGuiTableFlags.NoHostExtendX);
-        if (!table)
-            return;
 
         foreach (var fate in Svc.Fates.OrderBy(x => Vector3.Distance(x.Position, Player.Position)))
         {
