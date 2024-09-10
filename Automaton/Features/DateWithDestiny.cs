@@ -263,21 +263,13 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         {
             case DateWithDestinyState.Ready:
                 if (cf != null)
-                {
                     State = DateWithDestinyState.InCombat;
-                }
                 else if (Svc.Condition[ConditionFlag.InFlight])
-                {
                     State = DateWithDestinyState.Flying;
-                }
                 else if (Svc.Condition[ConditionFlag.Mounted] || Svc.Condition[ConditionFlag.Mounted2])
-                {
                     State = DateWithDestinyState.Mounted;
-                }
                 else
-                {
                     State = DateWithDestinyState.Standing;
-                }
                 return;
             case DateWithDestinyState.Standing:
                 if (Svc.Condition[ConditionFlag.Mounted])
@@ -285,10 +277,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 else if (Svc.Condition[ConditionFlag.InCombat])
                     State = DateWithDestinyState.InCombat;
                 else if ((Config.FullAuto || Config.AutoMount) && !Player.Occupied)
-                {
-                    Svc.Log.Debug("Mounting...");
                     ExecuteMount();
-                }
                 return;
             case DateWithDestinyState.Mounted:
                 if (Svc.Condition[ConditionFlag.InFlight])
@@ -300,16 +289,12 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 var nextFate = GetFates().FirstOrDefault();
                 if (nextFate is not null)
                 {
-
-
                     if (Config.YokaiMode)
-                    {
                         YokaiMode();
-                    }
 
-                    if (!P.Navmesh.PathfindInProgress())
+                    if (!P.Navmesh.PathfindInProgress() && !P.Navmesh.IsRunning())
                     {
-                        Svc.Log.Debug("Finding path to fate");
+                        Svc.Log.Info("Finding path to fate");
                         nextFateID = nextFate.FateId;
 
                         _successiveInstanceChanges = 0;
@@ -320,7 +305,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 }
                 else if (nextFate is null)
                 {
-                    Svc.Log.Debug("No eligible fates. Number of instances: " + P.Lifestream.GetNumberOfInstances());
+                    Svc.Log.Info("No eligible fates. Number of instances: " + P.Lifestream.GetNumberOfInstances());
                     if (Config.ChangeInstances && P.Lifestream.GetNumberOfInstances() != 1)
                     {
                         State = DateWithDestinyState.ChangingInstances;
@@ -332,13 +317,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 if (!P.Navmesh.PathfindInProgress() && !P.Navmesh.IsRunning())
                 {
                     if (cf is not null)
-                    {
                         State = DateWithDestinyState.InCombat;
-                    }
                     else
-                    {
                         State = DateWithDestinyState.Ready;
-                    }
                 }
                 return;
             case DateWithDestinyState.InteractingWithNpc:
@@ -357,13 +338,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
                     var target = Svc.Targets.Target;
                     if (target == null && Svc.Condition[ConditionFlag.InCombat])
-                    {
                         target = GetMobTargetingPlayer();
-                    }
                     if (target == null || target.ObjectKind != ObjectKind.BattleNpc)
-                    {
                         target = GetFateMob();
-                    }
 
                     // Update target position continually so we don't pingpong
                     if (target != null)
@@ -386,10 +363,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 return;
             case DateWithDestinyState.ChangingInstances:
                 if (ChangeInstances())
-                {
                     State = DateWithDestinyState.Ready;
-                    Svc.Log.Info("State is Ready");
-                }
                 return;
             case DateWithDestinyState.ExchangingVouchers:
                 // TODO: not implemented
@@ -453,9 +427,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                     Svc.Log.Info("Travel distance via aetheryte: " + aetheryteTravelDistance);
                 }
                 if (aetheryteTravelDistance < directTravelDistance) // if the closest aetheryte is a shortcut, then teleport
-                {
                     ExecuteTeleport(closestAetheryte);
-                }
                 else // if the closest aetheryte is too far away, just fly directly to the fate
                 {
                     if (P.Navmesh.IsReady() && !P.Navmesh.IsRunning() && !P.Navmesh.PathfindInProgress())
@@ -477,14 +449,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         if (Svc.Condition[ConditionFlag.Mounted]) ExecuteDismount();
         TargetPos = target.Position;
         if ((Config.FullAuto || Config.AutoTarget) && Svc.Targets.Target?.GameObjectId != target.GameObjectId)
-        {
             Svc.Targets.Target = target;
-        }
-        if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() &&
-            !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
-        {
+        if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15))
             P.Navmesh.PathfindAndMoveTo(TargetPos, false);
-        }
     }
 
     private unsafe void ExecuteTeleport(uint closestAetheryteDataId)
