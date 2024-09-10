@@ -80,7 +80,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     public DateWithDestiny()
     {
-        P.TaskManager.AbortOnTimeout = Config.AbortTasksOnTimeout;
         State = DateWithDestinyState.Ready;
     }
 
@@ -233,6 +232,8 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     private unsafe void OnUpdate(IFramework framework)
     {
+        P.TaskManager.AbortOnTimeout = Config.AbortTasksOnTimeout;
+
         if (!Player.Available || P.TaskManager.IsBusy) return;
 
         if (!active)
@@ -334,16 +335,30 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 }
                 else
                 {
-                    FateID = cf->FateId;
                     if (Svc.Condition[ConditionFlag.Mounted]) ExecuteDismount();
 
                     var target = Svc.Targets.Target;
+
+                    if (P.Navmesh.IsRunning() && Svc.Targets.Target?.ObjectKind == ObjectKind.BattleNpc &&
+                        (DistanceToTarget() < 2 || (target != null && DistanceToHitboxEdge(target.HitboxRadius) <= (Config.StayInMeleeRange ? 0 : 15))))
+                    {
+                        P.Navmesh.Stop();
+                        return;
+                    }
+
+                    // target mobs targeting player (includes unexpected combat outside of fate)
                     if (target == null && Svc.Condition[ConditionFlag.InCombat])
                         target = GetMobTargetingPlayer();
-                    if (target == null || target.ObjectKind != ObjectKind.BattleNpc)
-                        target = GetFateMob();
 
-                    // Update target position continually so we don't pingpong
+                    // target fate mobs if you're in a fate
+                    if (cf != null)
+                    {
+                        FateID = cf->FateId;
+                        if (target == null || target.ObjectKind != ObjectKind.BattleNpc)
+                            target = GetFateMob();
+                    }
+
+                    // if you found a target, go fight it
                     if (target != null)
                     {
                         TargetPos = target.Position;
@@ -352,13 +367,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                             TargetAndMoveToEnemy(target);
                             return;
                         }
-                    }
-
-                    if (P.Navmesh.IsRunning())
-                    {
-                        if (Svc.Targets.Target?.ObjectKind == ObjectKind.BattleNpc &&
-                            (DistanceToTarget() < 2 || (Svc.Targets.Target != null && DistanceToHitboxEdge(Svc.Targets.Target.HitboxRadius) <= (Config.StayInMeleeRange ? 0 : 15))))
-                            P.Navmesh.Stop();
                     }
                 }
                 return;
@@ -451,7 +459,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         TargetPos = target.Position;
         if ((Config.FullAuto || Config.AutoTarget) && Svc.Targets.Target?.GameObjectId != target.GameObjectId)
             Svc.Targets.Target = target;
-        if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15))
+        if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
             P.Navmesh.PathfindAndMoveTo(TargetPos, false);
     }
 
