@@ -56,9 +56,7 @@ public enum DateWithDestinyState
     Unknown,
     Ready,
     Standing,
-    Mounting,
     Mounted,
-    Jumping,
     Flying,
     MovingToFate,
     InteractingWithNpc,
@@ -283,41 +281,21 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 }
                 return;
             case DateWithDestinyState.Standing:
-                if (Svc.Condition[ConditionFlag.InCombat])
-                {
+                if (Svc.Condition[ConditionFlag.Mounted])
+                    State = DateWithDestinyState.Mounted;
+                else if (Svc.Condition[ConditionFlag.InCombat])
                     State = DateWithDestinyState.InCombat;
-                }
                 else if ((Config.FullAuto || Config.AutoMount) && !Player.Occupied)
                 {
-                    State = DateWithDestinyState.Mounting;
                     Svc.Log.Debug("Mounting...");
                     ExecuteMount();
                 }
                 return;
-            case DateWithDestinyState.Mounting:
-                if (Svc.Condition[ConditionFlag.Mounted])
-                    State = DateWithDestinyState.Mounted;
-                else
-                {
-                    ExecuteMount();
-                }
-                return;
             case DateWithDestinyState.Mounted:
-                if ((Config.FullAuto || Config.AutoFly) && !Player.Occupied && Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
-                {
-                    State = DateWithDestinyState.Jumping;
-                    ExecuteJump();
-                }
-                return;
-            case DateWithDestinyState.Jumping:
                 if (Svc.Condition[ConditionFlag.InFlight])
-                {
                     State = DateWithDestinyState.Flying;
-                }
-                else
-                {
+                else if ((Config.FullAuto || Config.AutoFly) && !Player.Occupied && Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
                     ExecuteJump();
-                }
                 return;
             case DateWithDestinyState.Flying:
                 var nextFate = GetFates().FirstOrDefault();
