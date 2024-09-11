@@ -55,9 +55,6 @@ public enum DateWithDestinyState
 {
     Unknown,
     Ready,
-    Standing,
-    Mounted,
-    Flying,
     Mounting,
     MovingToFate,
     InteractingWithNpc,
@@ -149,7 +146,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private static readonly uint[] ForlornIDs = [7586, 7587];
     private static readonly uint[] TwistOfFateStatusIDs = [1288, 1289];
 
-    private ushort nextFateID;
     private byte fateMaxLevel;
     private ushort fateID;
     private ushort FateID
@@ -283,7 +279,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 return;
             case DateWithDestinyState.MovingToFate:
                 _successiveInstanceChanges = 0;
-                unsafe { AgentMap.Instance()->SetFlagMapMarker(Svc.ClientState.TerritoryType, Svc.ClientState.MapId, FateManager.Instance()->GetFateById(nextFateID)->Location); }
+                unsafe { AgentMap.Instance()->SetFlagMapMarker(Svc.ClientState.TerritoryType, Svc.ClientState.MapId, FateManager.Instance()->GetFateById(nextFate!.FateId)->Location); }
                 if (!Svc.Condition[ConditionFlag.InFlight])
                 {
                     State = DateWithDestinyState.Mounting;
@@ -295,7 +291,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                     if (cf is not null)
                         State = DateWithDestinyState.InCombat;
                     else
-                        MoveToNextFate(nextFate.FateId);
+                        MoveToNextFate(nextFate!.FateId);
                 }
                 return;
             case DateWithDestinyState.InteractingWithNpc:
@@ -351,7 +347,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             case DateWithDestinyState.ExchangingVouchers:
                 // TODO: not implemented
                 return;
-            };
+        };
     }
 
     private void YokaiMode()
@@ -570,7 +566,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         && x.ObjectKind == ObjectKind.BattleNpc
         && x.SubKind == (byte)BattleNpcSubKind.Enemy
         && (x.Struct() != null && x.Struct()->FateId == FateID)
-        )//&& Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius)
+        && Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius)
         // Prioritize Forlorns if configured
         .OrderByDescending(x => Config.PrioritizeForlorns && ForlornIDs.Contains(x.DataId))
         // Prioritize enemies targeting us
@@ -588,7 +584,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private unsafe bool HaveYokaiMinionsMissing() => Yokai.Any(x => CompanionUnlocked(x.Minion));
     private unsafe int GetItemCount(uint itemID) => InventoryManager.Instance()->GetInventoryItemCount(itemID);
 
-    private unsafe FateContext* CurrentFate => FateManager.Instance()->GetFateById(nextFateID);
+    private unsafe FateContext* CurrentFate => FateManager.Instance()->CurrentFate;
 
     private unsafe float DistanceToFate() => Vector3.Distance(CurrentFate->Location, Svc.ClientState.LocalPlayer!.Position);
     private unsafe float DistanceToTarget() => (Svc.Targets.Target is not null) ? Vector3.Distance(Svc.Targets.Target.Position, Svc.ClientState.LocalPlayer!.Position) : 0;
