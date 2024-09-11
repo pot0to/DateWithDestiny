@@ -606,7 +606,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     {
         if (value != 0 && PlayerState.Instance()->IsLevelSynced == 0)
         {
-            if (Player.Level > fateMaxLevel)
+            if (Player.Level > CurrentFate->MaxLevel)
                 ECommons.Automation.Chat.Instance.SendMessage("/lsync");
         }
     }
