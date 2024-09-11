@@ -58,6 +58,7 @@ public enum DateWithDestinyState
     Standing,
     Mounted,
     Flying,
+    Mounting,
     MovingToFate,
     InteractingWithNpc,
     InCombat,
@@ -269,60 +270,32 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                     State = DateWithDestinyState.InCombat;
                 else if (nextFate == null)
                     State = DateWithDestinyState.ChangingInstances;
-                else if (Svc.Condition[ConditionFlag.InFlight])
-                    State = DateWithDestinyState.Flying;
-                else if (Svc.Condition[ConditionFlag.Mounted] || Svc.Condition[ConditionFlag.Mounted2])
-                    State = DateWithDestinyState.Mounted;
                 else
-                    State = DateWithDestinyState.Standing;
+                    State = DateWithDestinyState.MovingToFate;
                 return;
-            case DateWithDestinyState.Standing:
-                if (Config.YokaiMode)
-                    YokaiMode();
-                if (Svc.Condition[ConditionFlag.Mounted])
-                    State = DateWithDestinyState.Mounted;
-                else if (Svc.Condition[ConditionFlag.InCombat])
-                    State = DateWithDestinyState.InCombat;
-                else if ((Config.FullAuto || Config.AutoMount) && !Player.Occupied)
+            case DateWithDestinyState.Mounting:
+                if ((Config.FullAuto || Config.AutoMount) && !Player.Occupied && !(Svc.Condition[ConditionFlag.Mounted] || Svc.Condition[ConditionFlag.Mounted2]))
                     ExecuteMount();
-                return;
-            case DateWithDestinyState.Mounted:
-                if (Svc.Condition[ConditionFlag.InFlight])
-                    State = DateWithDestinyState.Flying;
                 else if ((Config.FullAuto || Config.AutoFly) && !Player.Occupied && Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
                     ExecuteJump();
-                return;
-            case DateWithDestinyState.Flying:
-                if (nextFate is not null)
-                {
-                    if (!P.Navmesh.PathfindInProgress() && !P.Navmesh.IsRunning())
-                    {
-                        Svc.Log.Info("Finding path to fate");
-                        nextFateID = nextFate.FateId;
-
-                        _successiveInstanceChanges = 0;
-                        unsafe { AgentMap.Instance()->SetFlagMapMarker(Svc.ClientState.TerritoryType, Svc.ClientState.MapId, FateManager.Instance()->GetFateById(nextFateID)->Location); }
-                        State = DateWithDestinyState.MovingToFate;
-                        MoveToNextFate(nextFate.FateId);
-                    }
-                }
-                else if (nextFate is null)
-                {
-                    Svc.Log.Info("No eligible fates. Number of instances: " + P.Lifestream.GetNumberOfInstances());
-                    if (Config.ChangeInstances && P.Lifestream.GetNumberOfInstances() != 1)
-                    {
-                        State = DateWithDestinyState.ChangingInstances;
-                        ChangeInstances();
-                    }
-                }
+                else if (Svc.Condition[ConditionFlag.InFlight])
+                    State = DateWithDestinyState.MovingToFate;
                 return;
             case DateWithDestinyState.MovingToFate:
+                _successiveInstanceChanges = 0;
+                unsafe { AgentMap.Instance()->SetFlagMapMarker(Svc.ClientState.TerritoryType, Svc.ClientState.MapId, FateManager.Instance()->GetFateById(nextFateID)->Location); }
+                if (!Svc.Condition[ConditionFlag.InFlight])
+                {
+                    State = DateWithDestinyState.Mounting;
+                    return;
+                }
+
                 if (!P.Navmesh.PathfindInProgress() && !P.Navmesh.IsRunning())
                 {
                     if (cf is not null)
                         State = DateWithDestinyState.InCombat;
                     else
-                        State = DateWithDestinyState.Ready;
+                        MoveToNextFate(nextFate.FateId);
                 }
                 return;
             case DateWithDestinyState.InteractingWithNpc:
@@ -378,7 +351,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             case DateWithDestinyState.ExchangingVouchers:
                 // TODO: not implemented
                 return;
-        };
+            };
     }
 
     private void YokaiMode()
