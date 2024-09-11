@@ -260,11 +260,14 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         _ticks += 1;
 
         var cf = FateManager.Instance()->CurrentFate;
+        var nextFate = GetFates().FirstOrDefault();
         switch (State)
         {
             case DateWithDestinyState.Ready:
                 if (cf != null)
                     State = DateWithDestinyState.InCombat;
+                else if (nextFate == null)
+                    State = DateWithDestinyState.ChangingInstances;
                 else if (Svc.Condition[ConditionFlag.InFlight])
                     State = DateWithDestinyState.Flying;
                 else if (Svc.Condition[ConditionFlag.Mounted] || Svc.Condition[ConditionFlag.Mounted2])
@@ -273,6 +276,8 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                     State = DateWithDestinyState.Standing;
                 return;
             case DateWithDestinyState.Standing:
+                if (Config.YokaiMode)
+                    YokaiMode();
                 if (Svc.Condition[ConditionFlag.Mounted])
                     State = DateWithDestinyState.Mounted;
                 else if (Svc.Condition[ConditionFlag.InCombat])
@@ -287,12 +292,8 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                     ExecuteJump();
                 return;
             case DateWithDestinyState.Flying:
-                var nextFate = GetFates().FirstOrDefault();
                 if (nextFate is not null)
                 {
-                    if (Config.YokaiMode)
-                        YokaiMode();
-
                     if (!P.Navmesh.PathfindInProgress() && !P.Navmesh.IsRunning())
                     {
                         Svc.Log.Info("Finding path to fate");
@@ -485,10 +486,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             return false;
         }
 
-        if (_ticks % 50 == 0)
-        {
-            Svc.Log.Debug("SuccessiveInstanceChanges low.");
-        }
+        if (P.Navmesh.PathfindInProgress() || P.Navmesh.IsRunning())
+            return false;
+
         var closestAetheryteDataId = Coords.GetNearestAetheryte((int)Player.Territory, Player.Position);
         var closestAetheryteGameObject = Svc.Objects
             .Where(x => x is { ObjectKind: ObjectKind.Aetheryte })
