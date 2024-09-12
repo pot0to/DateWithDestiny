@@ -146,7 +146,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private static readonly uint[] ForlornIDs = [7586, 7587];
     private static readonly uint[] TwistOfFateStatusIDs = [1288, 1289];
 
-    private byte fateMaxLevel;
     private ushort fateID;
     private ushort FateID
     {
@@ -251,10 +250,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             }
         }
 
-        if (_ticks % 50 == 0)
-        {
-            Svc.Log.Info("State: " + State.ToString());
-        }
+        Svc.Log.Info("State: " + State.ToString());
         _ticks += 1;
 
         var cf = FateManager.Instance()->CurrentFate;
@@ -341,6 +337,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 }
                 return;
             case DateWithDestinyState.ChangingInstances:
+                Svc.Log.Info("_successiveInstanceChanges: " + _successiveInstanceChanges);
                 if (ChangeInstances())
                     State = DateWithDestinyState.Ready;
                 return;
@@ -450,9 +447,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         var numberOfInstances = P.Lifestream.GetNumberOfInstances();
         if (_successiveInstanceChanges >= numberOfInstances - 1)
         {
+            P.TaskManager.Enqueue(() => EzThrottler.Throttle("SuccessiveInstanceChanges", 10000));
+            P.TaskManager.Enqueue(() => EzThrottler.Check("SuccessiveInstanceChanges"));
+            Svc.Log.Info("Cycled through all instances. Waiting 10s.");
             _successiveInstanceChanges = 0;
-            //System.Threading.Thread.Sleep(10000);
-            EzThrottler.Throttle("Cycled through all instances. Waiting 10s.", 10000);
             return false;
         }
 
