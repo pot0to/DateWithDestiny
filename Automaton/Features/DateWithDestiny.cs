@@ -13,6 +13,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
+using IronPython.Compiler.Ast;
 using Lumina.Excel.GeneratedSheets;
 using static ECommons.GameFunctions.ObjectFunctions;
 
@@ -231,34 +232,53 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
         if (!Player.Available || P.TaskManager.IsBusy) return;
 
-        if (!active && State != DateWithDestinyState.Ready)
+        if (!active)
         {
-            State = DateWithDestinyState.Ready;
+            if (State != DateWithDestinyState.Ready)
+            {
+                State = DateWithDestinyState.Ready;
+                Svc.Log.Info("State Change: " + State.ToString());
+            }
+            return;
+        }
+
+        if (Player.IsDead && State != DateWithDestinyState.Dead)
+        {
+            State = DateWithDestinyState.Dead;
             Svc.Log.Info("State Change: " + State.ToString());
             return;
         }
 
-        // Update target position continually so we don't pingpong
-        if (Svc.Targets.Target != null)
-        {
-            var target = Svc.Targets.Target;
-            TargetPos = target.Position;
-            if ((Config.FullAuto || Config.AutoMoveToMobs) && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
-            {
-                TargetAndMoveToEnemy(target);
-                return;
-            }
-        }
-
         var cf = FateManager.Instance()->CurrentFate;
         var nextFate = GetFates().FirstOrDefault();
+        var bicolorGemstoneCount = GetItemCount(26807);
         switch (State)
         {
+            case DateWithDestinyState.Dead:
+                if (Player.IsDead)
+                    ExecuteRevive();
+                else
+                {
+                    if (Svc.ClientState.TerritoryType != ZoneToFarm)
+                    {
+                        ExecuteTeleport(Coords.GetPrimaryAetheryte(ZoneToFarm) ?? 0);
+                    }
+                    else
+                    {
+                        State = DateWithDestinyState.Ready;
+                        Svc.Log.Info("State Change: " + State.ToString());
+                    }
+                }
+                return;
             case DateWithDestinyState.Ready:
                 if (cf != null)
                     State = DateWithDestinyState.InCombat;
+                else if (bicolorGemstoneCount > 1400)
+                    State = DateWithDestinyState.ExchangingVouchers;
                 else if (nextFate == null)
                     State = DateWithDestinyState.ChangingInstances;
+                else if (Svc.Condition[ConditionFlag.InFlight])
+                    State = DateWithDestinyState.Dead;
                 else
                     State = DateWithDestinyState.MovingToFate;
                 Svc.Log.Info("State Change: " + State.ToString());
@@ -299,6 +319,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 // TODO: not implemented
                 return;
             case DateWithDestinyState.InCombat:
+
                 if (cf == null && !Svc.Condition[ConditionFlag.InCombat] && !Player.IsCasting)
                 {
                     State = DateWithDestinyState.Ready;
@@ -310,7 +331,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                     if (Svc.Condition[ConditionFlag.Mounted]) ExecuteDismount();
 
                     var target = Svc.Targets.Target;
-
                     if (P.Navmesh.IsRunning() && Svc.Targets.Target?.ObjectKind == ObjectKind.BattleNpc &&
                         (DistanceToTarget() < 2 || (target != null && DistanceToHitboxEdge(target.HitboxRadius) <= (Config.StayInMeleeRange ? 0 : 15))))
                     {
