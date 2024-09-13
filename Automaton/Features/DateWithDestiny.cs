@@ -223,7 +223,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     private int _successiveInstanceChanges = 0;
     private readonly int _distanceToTargetAetheryte = 50; // object.IsTargetable has a larger range than actually clickable
-    private int _ticks = 0; // to not spam logging
 
     private unsafe void OnUpdate(IFramework framework)
     {
@@ -231,9 +230,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
         if (!Player.Available || P.TaskManager.IsBusy) return;
 
-        if (!active)
+        if (!active && State != DateWithDestinyState.Ready)
         {
             State = DateWithDestinyState.Ready;
+            Svc.Log.Info("State Change: " + State.ToString());
             return;
         }
 
@@ -249,9 +249,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             }
         }
 
-        Svc.Log.Info("State: " + State.ToString());
-        _ticks += 1;
-
         var cf = FateManager.Instance()->CurrentFate;
         var nextFate = GetFates().FirstOrDefault();
         switch (State)
@@ -263,6 +260,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                     State = DateWithDestinyState.ChangingInstances;
                 else
                     State = DateWithDestinyState.MovingToFate;
+                Svc.Log.Info("State Change: " + State.ToString());
                 return;
             case DateWithDestinyState.Mounting:
                 if ((Config.FullAuto || Config.AutoMount) && !Player.Occupied && !(Svc.Condition[ConditionFlag.Mounted] || Svc.Condition[ConditionFlag.Mounted2]))
@@ -270,7 +268,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 else if ((Config.FullAuto || Config.AutoFly) && !Player.Occupied && Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
                     ExecuteJump();
                 else if (Svc.Condition[ConditionFlag.InFlight])
+                {
                     State = DateWithDestinyState.MovingToFate;
+                    Svc.Log.Info("State Change: " + State.ToString());
+                }
                 return;
             case DateWithDestinyState.MovingToFate:
                 _successiveInstanceChanges = 0;
@@ -278,13 +279,17 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 if (!Svc.Condition[ConditionFlag.InFlight])
                 {
                     State = DateWithDestinyState.Mounting;
+                    Svc.Log.Info("State Change: " + State.ToString());
                     return;
                 }
 
                 if (!P.Navmesh.PathfindInProgress() && !P.Navmesh.IsRunning())
                 {
                     if (cf is not null)
+                    {
                         State = DateWithDestinyState.InCombat;
+                        Svc.Log.Info("State Change: " + State.ToString());
+                    }
                     else
                         MoveToNextFate(nextFate!.FateId);
                 }
@@ -296,6 +301,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 if (cf == null && !Svc.Condition[ConditionFlag.InCombat] && !Player.IsCasting)
                 {
                     State = DateWithDestinyState.Ready;
+                    Svc.Log.Info("State Change: " + State.ToString());
                     FateID = 0;
                 }
                 else
@@ -338,7 +344,10 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             case DateWithDestinyState.ChangingInstances:
                 Svc.Log.Info("_successiveInstanceChanges: " + _successiveInstanceChanges);
                 if (ChangeInstances())
+                {
                     State = DateWithDestinyState.Ready;
+                    Svc.Log.Info("State Change: " + State.ToString());
+                }
                 return;
             case DateWithDestinyState.ExchangingVouchers:
                 // TODO: not implemented
@@ -387,20 +396,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             var directTravelDistance = Vector3.Distance(Player.Position, targetPos);
             var closestAetheryte = Coords.GetNearestAetheryte(Svc.ClientState.TerritoryType, targetPos);
 
-            if (_ticks % 50 == 0)
-            {
-                Svc.Log.Info("Player.Position: " + Player.Position.X + " " + Player.Position.Y + " " + Player.Position.Z);
-                Svc.Log.Info("targetPos: " + targetPos.X + " " + targetPos.Y + " " + targetPos.Z);
-                Svc.Log.Info("Direct flight distance is: " + directTravelDistance);
-                Svc.Log.Info("Closest aetheryte to next fate is: " + closestAetheryte);
-            }
             if (closestAetheryte != 0)
             {
                 var aetheryteTravelDistance = Coords.GetDistanceToAetheryte(closestAetheryte, targetPos) + teleportTimePenalty;
-                if (_ticks % 50 == 0)
-                {
-                    Svc.Log.Info("Travel distance via aetheryte: " + aetheryteTravelDistance);
-                }
                 if (aetheryteTravelDistance < directTravelDistance) // if the closest aetheryte is a shortcut, then teleport
                     ExecuteTeleport(closestAetheryte);
                 else // if the closest aetheryte is too far away, just fly directly to the fate
@@ -439,10 +437,6 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     private unsafe bool ChangeInstances()
     {
-        if (_ticks % 50 == 0)
-        {
-            Svc.Log.Debug("ChangeInstances()");
-        }
         var numberOfInstances = P.Lifestream.GetNumberOfInstances();
         if (_successiveInstanceChanges >= numberOfInstances - 1)
         {
@@ -467,28 +461,15 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             return false;
         }
 
-        if (_ticks % 50 == 0)
-        {
-            Svc.Log.Debug("Within 50 of aetheryte.");
-        }
         if (Svc.Targets.Target?.ObjectKind != ObjectKind.Aetheryte)
         {
             Svc.Targets.Target = closestAetheryteGameObject;
             return false;
         }
 
-        if (_ticks % 50 == 0)
-        {
-            Svc.Log.Debug("Targeting aetheryte.");
-            Svc.Log.Debug("Attempting to change instance");
-        }
         // If too far away to target or "target is too far below you" error
         if (DistanceToTarget() > 10 || Player.Position.Y - Svc.Targets.Target.Position.Y > 2)
         {
-            if (_ticks % 50 == 0)
-            {
-                Svc.Log.Debug("Not close enough to change instance. Moving closer");
-            }
             // interact distance is between 8 and 10. less than 8 and you will run into the base of the aetheryte
             var closerToAetheryte = Svc.Targets.Target.Position - (Vector3.Normalize(Svc.Targets.Target.Position - Player.Position) * 8);
             closerToAetheryte.Y = Math.Min(closerToAetheryte.Y, Svc.Targets.Target.Position.Y + 1);
