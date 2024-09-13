@@ -241,43 +241,16 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             return;
         }
 
-        if (Player.IsDead && State != DateWithDestinyState.Dead)
-        {
-            State = DateWithDestinyState.Dead;
-            Svc.Log.Info("State Change: " + State.ToString());
-            return;
-        }
-
         var cf = FateManager.Instance()->CurrentFate;
         var nextFate = GetFates().FirstOrDefault();
         var bicolorGemstoneCount = GetItemCount(26807);
         switch (State)
         {
-            case DateWithDestinyState.Dead:
-                if (Player.IsDead)
-                    ExecuteRevive();
-                else
-                {
-                    if (Svc.ClientState.TerritoryType != ZoneToFarm)
-                    {
-                        ExecuteTeleport(Coords.GetPrimaryAetheryte(ZoneToFarm) ?? 0);
-                    }
-                    else
-                    {
-                        State = DateWithDestinyState.Ready;
-                        Svc.Log.Info("State Change: " + State.ToString());
-                    }
-                }
-                return;
             case DateWithDestinyState.Ready:
                 if (cf != null)
                     State = DateWithDestinyState.InCombat;
-                else if (bicolorGemstoneCount > 1400)
-                    State = DateWithDestinyState.ExchangingVouchers;
                 else if (nextFate == null)
                     State = DateWithDestinyState.ChangingInstances;
-                else if (Svc.Condition[ConditionFlag.InFlight])
-                    State = DateWithDestinyState.Dead;
                 else
                     State = DateWithDestinyState.MovingToFate;
                 Svc.Log.Info("State Change: " + State.ToString());
