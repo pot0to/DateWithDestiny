@@ -1,22 +1,27 @@
-﻿using ECommons.EzHookManager;
+﻿using Dalamud.Game.Network.Structures;
+using Dalamud.Hooking;
+using ECommons.EzHookManager;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
+using FFXIVClientStructs.FFXIV.Client.UI.Info;
+using FFXIVClientStructs.FFXIV.Common.Lua;
 using System.Runtime.InteropServices;
 
 namespace Automaton.Utilities;
 #pragma warning disable CS0649
 internal unsafe class Memory
 {
-    public unsafe delegate void RidePillionDelegate(BattleChara* target, int seatIndex);
-    public RidePillionDelegate? RidePillion = null!;
+    internal unsafe delegate void RidePillionDelegate(BattleChara* target, int seatIndex);
+    internal RidePillionDelegate? RidePillion = null!;
 
-    public unsafe delegate void SalvageItemDelegate(AgentSalvage* thisPtr, InventoryItem* item, int addonId, byte a4);
-    public SalvageItemDelegate SalvageItem = null!;
+    internal unsafe delegate void SalvageItemDelegate(AgentSalvage* thisPtr, InventoryItem* item, int addonId, byte a4);
+    internal SalvageItemDelegate SalvageItem = null!;
 
-    public delegate void AbandonDutyDelegate(bool a1);
-    public AbandonDutyDelegate AbandonDuty = null!;
+    internal delegate void AbandonDutyDelegate(bool a1);
+    internal AbandonDutyDelegate AbandonDuty = null!;
 
     public Memory()
     {
@@ -24,22 +29,35 @@ internal unsafe class Memory
         RidePillion = Marshal.GetDelegateForFunctionPointer<RidePillionDelegate>(Svc.SigScanner.ScanText("48 85 C9 0F 84 ?? ?? ?? ?? 48 89 6C 24 ?? 56 48 83 EC"));
         SalvageItem = Marshal.GetDelegateForFunctionPointer<SalvageItemDelegate>(Svc.SigScanner.ScanText("E8 ?? ?? ?? ?? EB 46 48 8B 03")); // thanks veyn
         AbandonDuty = Marshal.GetDelegateForFunctionPointer<AbandonDutyDelegate>(Svc.SigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B 43 28 41 B2 01"));
+
+        ProcessRequestResultHook = Svc.Hook.HookFromAddress<InfoProxyItemSearch.Delegates.ProcessRequestResult>(InfoProxyItemSearch.MemberFunctionPointers.ProcessRequestResult, ProcessRequestResultDetour);
+        EndRequestHook = Svc.Hook.HookFromAddress<InfoProxyItemSearch.Delegates.EndRequest>(InfoProxyItemSearch.StaticVirtualTablePointer->EndRequest, EndRequestDetour);
+        ProcessRequestResultHook?.Enable();
+        EndRequestHook?.Enable();
+        Svc.MarketBoard.OfferingsReceived += OnOfferingsReceived;
+    }
+
+    public void Dispose()
+    {
+        Svc.MarketBoard.OfferingsReceived -= OnOfferingsReceived;
+        ProcessRequestResultHook?.Dispose();
+        EndRequestHook?.Dispose();
     }
 
     #region PacketDispatcher
     const string PacketDispatcher_OnReceivePacketHookSig = "40 53 56 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 ?? 8B F2";
-    public delegate void PacketDispatcher_OnReceivePacket(nint a1, uint a2, nint a3);
+    internal delegate void PacketDispatcher_OnReceivePacket(nint a1, uint a2, nint a3);
     [EzHook(PacketDispatcher_OnReceivePacketHookSig, false)]
-    public EzHook<PacketDispatcher_OnReceivePacket> PacketDispatcher_OnReceivePacketHook = null!;
+    internal EzHook<PacketDispatcher_OnReceivePacket> PacketDispatcher_OnReceivePacketHook = null!;
     [EzHook(PacketDispatcher_OnReceivePacketHookSig, false)]
-    public EzHook<PacketDispatcher_OnReceivePacket> PacketDispatcher_OnReceivePacketMonitorHook = null!;
+    internal EzHook<PacketDispatcher_OnReceivePacket> PacketDispatcher_OnReceivePacketMonitorHook = null!;
 
     internal delegate byte PacketDispatcher_OnSendPacket(nint a1, nint a2, nint a3, byte a4);
     [EzHook("48 89 5C 24 ?? 48 89 74 24 ?? 4C 89 64 24 ?? 55 41 56 41 57 48 8B EC 48 83 EC 70", false)]
     internal EzHook<PacketDispatcher_OnSendPacket> PacketDispatcher_OnSendPacketHook = null!;
 
-    public List<uint> DisallowedSentPackets = [];
-    public List<uint> DisallowedReceivedPackets = [];
+    internal List<uint> DisallowedSentPackets = [];
+    internal List<uint> DisallowedReceivedPackets = [];
 
     private byte PacketDispatcher_OnSendPacketDetour(nint a1, nint a2, nint a3, byte a4)
     {
@@ -111,9 +129,9 @@ internal unsafe class Memory
     #endregion
 
     #region Bewitch
-    public unsafe delegate nint NoBewitchActionDelegate(CSGameObject* gameObj, float x, float y, float z, int a5, nint a6);
+    internal unsafe delegate nint NoBewitchActionDelegate(CSGameObject* gameObj, float x, float y, float z, int a5, nint a6);
     [EzHook("40 53 48 83 EC 50 45 33 C0", false)]
-    public readonly EzHook<NoBewitchActionDelegate>? BewitchHook;
+    internal readonly EzHook<NoBewitchActionDelegate>? BewitchHook;
 
     private unsafe nint BewitchDetour(CSGameObject* gameObj, float x, float y, float z, int a5, nint a6)
     {
@@ -136,19 +154,19 @@ internal unsafe class Memory
     #endregion
 
     #region Knockback
-    public delegate long kbprocDelegate(long gameobj, float rot, float length, long a4, char a5, int a6);
+    internal delegate long kbprocDelegate(long gameobj, float rot, float length, long a4, char a5, int a6);
     [EzHook("E8 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? FF C6", false)]
-    public readonly EzHook<kbprocDelegate>? KBProcHook;
+    internal readonly EzHook<kbprocDelegate>? KBProcHook;
 
-    private long KBProcDetour(long gameobj, float rot, float length, long a4, char a5, int a6) => KBProcHook!.Original(gameobj, rot, 0f, a4, a5, a6);
+    internal long KBProcDetour(long gameobj, float rot, float length, long a4, char a5, int a6) => KBProcHook!.Original(gameobj, rot, 0f, a4, a5, a6);
     #endregion
 
     #region Achievements
-    public delegate void ReceiveAchievementProgressDelegate(Achievement* achievement, uint id, uint current, uint max);
+    internal delegate void ReceiveAchievementProgressDelegate(Achievement* achievement, uint id, uint current, uint max);
     [EzHook("C7 81 ?? ?? ?? ?? ?? ?? ?? ?? 89 91 ?? ?? ?? ?? 44 89 81")]
-    public EzHook<ReceiveAchievementProgressDelegate> ReceiveAchievementProgressHook = null!;
+    internal EzHook<ReceiveAchievementProgressDelegate> ReceiveAchievementProgressHook = null!;
 
-    public void ReceiveAchievementProgressDetour(Achievement* achievement, uint id, uint current, uint max)
+    private void ReceiveAchievementProgressDetour(Achievement* achievement, uint id, uint current, uint max)
     {
         try
         {
@@ -162,5 +180,122 @@ internal unsafe class Memory
 
         ReceiveAchievementProgressHook.Original(achievement, id, current, max);
     }
+    #endregion
+
+    #region Marketboard
+    private readonly Hook<InfoProxyItemSearch.Delegates.ProcessRequestResult>? ProcessRequestResultHook;
+    private readonly Hook<InfoProxyItemSearch.Delegates.EndRequest>? EndRequestHook;
+    private readonly List<IMarketBoardItemListing> Listings = [];
+
+    public delegate void ListingsStartDelegate();
+    public delegate void ListingsPageDelegate(IReadOnlyList<IMarketBoardItemListing> listings);
+    public delegate void ListingsEndDelegate(IReadOnlyList<IMarketBoardItemListing> listings);
+
+    public nint ProcessRequestResultDetour(InfoProxyItemSearch* infoProxy, nint a2, nint a3, nint a4, int a5, byte a6, int a7)
+    {
+        Listings.Clear();
+        Events.OnListingsStart();
+        return ProcessRequestResultHook!.Original(infoProxy, a2, a3, a4, a5, a6, a7);
+    }
+
+    public void EndRequestDetour(InfoProxyItemSearch* infoProxy)
+    {
+        EndRequestHook!.Original(infoProxy);
+        Events.OnListingsEnd(Listings);
+        Listings.Clear();
+    }
+
+    private void OnOfferingsReceived(IMarketBoardCurrentOfferings currentOfferings)
+    {
+        Listings.AddRange(currentOfferings.ItemListings);
+        Events.OnListingsPage(currentOfferings.ItemListings);
+    }
+    #endregion
+
+    #region Snipe Quest Sequences
+    [EzHook("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 50 48 8B F1 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 4C 24 ??", false)]
+    internal EzHook<EnqueueSnipeTaskDelegate> SnipeHook = null!;
+    internal delegate ulong EnqueueSnipeTaskDelegate(EventSceneModuleImplBase* scene, lua_State* state);
+
+    private ulong SnipeDetour(EventSceneModuleImplBase* scene, lua_State* state)
+    {
+        try
+        {
+            var val = state->top;
+            val->tt = 3;
+            val->value.n = 1;
+            state->top += 1;
+            return 1;
+        }
+        catch
+        {
+            return SnipeHook.Original.Invoke(scene, state);
+        }
+    }
+    #endregion
+
+    #region Flight Prohibited
+    internal delegate nint IsFlightProhibited(nint a1);
+    [EzHook("E8 ?? ?? ?? ?? 85 C0 74 07 32 C0 48 83 C4 38", false)]
+    internal readonly EzHook<IsFlightProhibited> IsFlightProhibitedHook = null!;
+
+    private unsafe nint IsFlightProhibitedDetour(nint a1)
+    {
+        try
+        {
+            if (GetRow<Lumina.Excel.GeneratedSheets.TerritoryType>(Player.Territory)?.Unknown32 == 0) // don't detour in zones where flight is impossible normally
+                return IsFlightProhibitedHook.Original(a1);
+            else if (PlayerState.Instance()->IsAetherCurrentZoneComplete(Svc.ClientState.TerritoryType)) // don't detour in zones where you can already fly
+                return IsFlightProhibitedHook.Original(a1);
+            else if (!Svc.Condition[ConditionFlag.Mounted]) // don't detour if you aren't mounted
+                return IsFlightProhibitedHook.Original(a1);
+            else
+                return 0;
+        }
+        catch (Exception e)
+        {
+            e.Log();
+        }
+        return IsFlightProhibitedHook.Original(a1);
+    }
+    #endregion
+
+    #region Return Receive Event
+    internal delegate byte AgentReturnReceiveEventDelegate(AgentInterface* agent);
+    [EzHook("E8 ?? ?? ?? ?? 41 8D 5E 0D", false)]
+    internal readonly EzHook<AgentReturnReceiveEventDelegate> ReturnHook = null!;
+
+    internal delegate nint ExecuteCommandDelegate(int command, int param1, int param2, int param3, int param4);
+    [EzHook("E8 ?? ?? ?? ?? 8D 43 0A", false)]
+    internal readonly EzHook<ExecuteCommandDelegate> ExecuteCommandHook = null!;
+
+    private byte ReturnDetour(AgentInterface* agent)
+    {
+        if (ActionManager.Instance()->GetActionStatus(ActionType.GeneralAction, 6) != 0)
+            return ReturnHook.Original(agent);
+
+        ExecuteCommand(214);
+        return 1;
+    }
+
+    private nint ExecuteCommand(int command, int param1 = 0, int param2 = 0, int param3 = 0, int param4 = 0)
+    {
+        var result = ExecuteCommandHook.Original(command, param1, param2, param3, param4);
+        return result;
+    }
+
+    private nint ExecuteCommandDetour(int command, int param1, int param2, int param3, int param4)
+    {
+        Svc.Log.Debug($"[{nameof(ExecuteCommandDetour)}]: cmd:({command}) | p1:{param1} | p2:{param2} | p3:{param3} | p4:{param4}");
+        return ExecuteCommandHook.Original(command, param1, param2, param3, param4);
+    }
+    #endregion
+
+    #region Get Grand Company Rank
+    internal delegate byte GetGrandCompanyRankDelegate(nint a1);
+    [EzHook("E8 ?? ?? ?? ?? 3A 43 01", false)]
+    internal readonly EzHook<GetGrandCompanyRankDelegate> GCRankHook = null!;
+
+    private byte GCRankDetour(nint a1) => 17;
     #endregion
 }

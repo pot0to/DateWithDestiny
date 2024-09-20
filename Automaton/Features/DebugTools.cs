@@ -1,7 +1,6 @@
 ﻿using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Gui.Toast;
 using ECommons;
-using ECommons.EzHookManager;
 using ECommons.Interop;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
@@ -39,7 +38,6 @@ public class DebugTools : Tweak<DebugToolsConfiguration>
     {
         Svc.Framework.Update += OnUpdate;
         Svc.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "MJICraftSchedule", OnSetup);
-        EzSignatureHelper.Initialize(this);
     }
 
     public override void Disable()

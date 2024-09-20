@@ -18,7 +18,7 @@ public unsafe struct CameraEx
     [FieldOffset(0x14C)] public float DirVMax; // +45deg by default
 }
 
-public unsafe class OverrideCamera : IDisposable
+public unsafe class OverrideCamera
 {
     public bool Enabled
     {
@@ -40,15 +40,13 @@ public unsafe class OverrideCamera : IDisposable
 
     private delegate void RMICameraDelegate(CameraEx* self, int inputMode, float speedH, float speedV);
     [EzHook("40 53 48 83 EC 70 44 0F 29 44 24 ?? 48 8B D9", false)]
-    private readonly Hook<RMICameraDelegate> RMICameraHook = null!;
+    private readonly EzHook<RMICameraDelegate> RMICameraHook = null!;
 
     public OverrideCamera()
     {
         EzSignatureHelper.Initialize(this);
         Svc.Log.Information($"RMICamera address: 0x{RMICameraHook.Address:X}");
     }
-
-    public void Dispose() => RMICameraHook.Dispose();
 
     private void RMICameraDetour(CameraEx* self, int inputMode, float speedH, float speedV)
     {

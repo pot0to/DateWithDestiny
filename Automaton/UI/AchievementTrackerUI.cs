@@ -105,10 +105,10 @@ public unsafe class AchievementTrackerUI : Window
 
                 ImGui.Columns(2);
 
-                if (ImGuiX.IconButtonEnabledWhen(a.Index != 0, FontAwesomeIcon.ArrowUp, $"{a.Achievement.ID}"))
+                if (ImGuiEx.IconButton(FontAwesomeIcon.ArrowUp, $"{a.Achievement.ID}", enabled: a.Index != 0))
                     (_tweak.Config.Achievements[a.Index], _tweak.Config.Achievements[a.Index - 1]) = (_tweak.Config.Achievements[a.Index - 1], _tweak.Config.Achievements[a.Index]);
                 ImGui.SameLine();
-                if (ImGuiX.IconButtonEnabledWhen(a.Index != _tweak.Config.Achievements.Count - 1, FontAwesomeIcon.ArrowDown, $"{a.Achievement.ID}"))
+                if (ImGuiEx.IconButton(FontAwesomeIcon.ArrowDown, $"{a.Achievement.ID}", enabled: a.Index != _tweak.Config.Achievements.Count - 1))
                     (_tweak.Config.Achievements[a.Index], _tweak.Config.Achievements[a.Index + 1]) = (_tweak.Config.Achievements[a.Index + 1], _tweak.Config.Achievements[a.Index]);
 
                 ImGui.SameLine();

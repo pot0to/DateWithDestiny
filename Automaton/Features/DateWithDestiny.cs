@@ -4,7 +4,6 @@ using Dalamud.Game.ClientState.Fates;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Interface.Utility.Raii;
-using ECommons.EzHookManager;
 using ECommons.GameFunctions;
 using ECommons.SimpleGui;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -192,7 +191,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     public override void Disable()
     {
-        Utils.RemoveWindow<FateTrackerUI>();
+        EzConfigGui.RemoveWindow<FateTrackerUI>();
         Svc.Framework.Update -= OnUpdate;
     }
 
@@ -354,7 +353,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         // Prioritize enemies targeting us
         .ThenByDescending(x => x.IsTargetingPlayer())
         // Deprioritize mobs in combat with other players (hopefully avoid botlike pingpong behavior in trash fates)
-        .ThenBy(x => IsTaggedByOther(x) && !x.IsTargetingPlayer())
+        .ThenBy(x => x.GetNameplateKind() == NameplateKind.HostileEngagedOther && !x.IsTargetingPlayer())
         // Prioritize closest enemy        
         .ThenBy(x => Math.Floor(Vector3.Distance(Player.Position, x.Position)))
         // Prioritize lowest HP enemy
@@ -392,12 +391,5 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             if (Player.Level > fateMaxLevel)
                 ECommons.Automation.Chat.Instance.SendMessage("/lsync");
         }
-    }
-
-    private static unsafe bool IsTaggedByOther(IGameObject a)
-    {
-        GetNameplateColor ??= EzDelegate.Get<GetNameplateColorDelegate>(GetNameplateColorSig);
-        var plateType = GetNameplateColor(a.Address);
-        return plateType == 10;
     }
 }

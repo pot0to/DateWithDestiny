@@ -13,18 +13,6 @@ using System.Threading.Tasks;
 namespace Automaton.Utilities;
 public static class ImGuiX
 {
-    public static void TextUnformattedDisabled(string text)
-    {
-        using (ImRaii.Disabled())
-            ImGui.TextUnformatted(text);
-    }
-
-    public static void TextUnformattedColored(uint col, string text)
-    {
-        using (ImRaii.PushColor(ImGuiCol.Text, col))
-            ImGui.TextUnformatted(text);
-    }
-
     public static void PushCursor(Vector2 vec) => ImGui.SetCursorPos(ImGui.GetCursorPos() + vec);
     public static void PushCursor(float x, float y) => PushCursor(new Vector2(x, y));
     public static void PushCursorX(float x) => ImGui.SetCursorPosX(ImGui.GetCursorPosX() + x);
@@ -50,7 +38,7 @@ public static class ImGuiX
             using var tooltip = ImRaii.Tooltip();
             if (tooltip.Success)
             {
-                TextUnformattedColored(Colors.White, title);
+                ImGuiEx.Text((uint)Colors.White, title);
 
                 var pos = ImGui.GetCursorPos();
                 ImGui.GetWindowDrawList().AddText(
@@ -60,7 +48,7 @@ public static class ImGuiX
                     FontAwesomeIcon.ExternalLinkAlt.ToIconString()
                 );
                 ImGui.SetCursorPos(pos + new Vector2(20, 0));
-                TextUnformattedColored(Colors.Grey, url);
+                ImGuiEx.Text((uint)Colors.Grey, url);
             }
         }
 
@@ -82,7 +70,7 @@ public static class ImGuiX
         if (RespectUiTheme && Colors.IsLightTheme)
             color = HaselColor.FromUiForeground(UIColor);
 
-        TextUnformattedColored(color, Label);
+        ImGuiEx.Text((uint)color, Label);
 
         if (drawSeparator)
         {
@@ -217,16 +205,5 @@ public static class ImGuiX
 
         if (elapsedTime >= duration)
             startTime = currentTime;
-    }
-
-    public static bool IconButtonEnabledWhen(bool enabled, FontAwesomeIcon icon, string id)
-    {
-        if (!enabled)
-            ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.5f);
-        var result = ImGuiComponents.IconButton(id, icon);
-        if (!enabled)
-            ImGui.PopStyleVar();
-
-        return result && enabled;
     }
 }

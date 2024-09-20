@@ -92,7 +92,7 @@ public partial class HaselWindow
                     using var tooltip = ImRaii.Tooltip();
                     if (tooltip.Success)
                     {
-                        ImGuiX.TextUnformattedColored(color, status);
+                        ImGuiEx.Text((uint)color, status);
                     }
                 }
 
@@ -179,7 +179,7 @@ public partial class HaselWindow
 
         using var id = ImRaii.PushId(tweak.Name);
 
-        ImGuiX.TextUnformattedColored(Colors.Gold, tweak.Name);
+        ImGuiEx.Text((uint)Colors.Gold, tweak.Name);
 
         var (status, color) = GetTweakStatus(tweak);
 
@@ -189,7 +189,7 @@ public partial class HaselWindow
 
         ImGui.SameLine(windowX - textSize.X);
 
-        ImGuiX.TextUnformattedColored(color, status);
+        ImGuiEx.Text((uint)color, status);
 
         if (!string.IsNullOrEmpty(tweak.Description))
         {

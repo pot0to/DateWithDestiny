@@ -91,6 +91,7 @@ public class Automaton : IDalamudPlugin
         }
         C.EnabledTweaks.CollectionChanged -= OnChange;
         AddonObserver.Dispose();
+        Memory.Dispose();
         ECommonsMain.Dispose();
     }
 

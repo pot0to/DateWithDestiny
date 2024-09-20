@@ -1,6 +1,8 @@
 using Dalamud;
 using Dalamud.Interface.Windowing;
+using ECommons;
 using FFXIVClientStructs.Attributes;
+using FFXIVClientStructs.FFXIV.Application.Network.WorkDefinitions;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -29,29 +31,39 @@ internal class DebugWindow : Window
         for (var i = 0; i < RaptureAtkUnitManager.Instance()->FocusedUnitsList.Count; i++)
         {
             var atk = RaptureAtkUnitManager.Instance()->FocusedUnitsList.Entries[i].Value;
-            if (atk == null) continue;
-            var str = GetAddonStruct(atk);
-            if (str == null) continue;
-            ImGuiX.DrawSection($"{atk->NameString} - {str.GetType().Name}");
-            ImGui.Indent();
-            foreach (var f in str.GetType().GetFields())
-            {
-                var type = f.FieldType;
-                ImGui.TextUnformatted($"{f.Name}: {f.FieldType.Name} {f.FieldType.IsPointer} {f.GetValue(str)} {f.Attributes}");
-                if (type.IsPointer)
-                {
-                    var val = (Pointer)f.GetValue(str);
-                    var unboxed = Pointer.Unbox(val);
-                    try
-                    {
-                        var eType = type.GetElementType();
-                        var ptrObj = SafeMemory.PtrToStructure(new IntPtr(unboxed), eType);
-                    }
-                    catch { }
-                }
-            }
-            ImGui.Unindent();
+            ImGui.TextUnformatted($"{i} {atk == null} {(atk != null ? atk->NameString : "")}");
         }
+        ImGui.TextUnformatted($"{RaptureAtkUnitManager.Instance()->FocusedUnitsList.Entries[^1].Value == null}");
+        if (GenericHelpers.TryGetAddonByName<AtkUnitBase>("LookingForGroup", out var lfg))
+        {
+            ImGui.TextUnformatted($"{RaptureAtkUnitManager.Instance()->FocusedUnitsList.Entries[^1].Value == lfg}");
+        }
+        //for (var i = 0; i < RaptureAtkUnitManager.Instance()->FocusedUnitsList.Count; i++)
+        //{
+        //    var atk = RaptureAtkUnitManager.Instance()->FocusedUnitsList.Entries[i].Value;
+        //    if (atk == null) continue;
+        //    var str = GetAddonStruct(atk);
+        //    if (str == null) continue;
+        //    ImGuiX.DrawSection($"{atk->NameString} - {str.GetType().Name}");
+        //    ImGui.Indent();
+        //    foreach (var f in str.GetType().GetFields())
+        //    {
+        //        var type = f.FieldType;
+        //        ImGui.TextUnformatted($"{f.Name}: {f.FieldType.Name} {f.FieldType.IsPointer} {f.GetValue(str)} {f.Attributes}");
+        //        if (type.IsPointer)
+        //        {
+        //            var val = (Pointer)f.GetValue(str);
+        //            var unboxed = Pointer.Unbox(val);
+        //            try
+        //            {
+        //                var eType = type.GetElementType();
+        //                var ptrObj = SafeMemory.PtrToStructure(new IntPtr(unboxed), eType);
+        //            }
+        //            catch { }
+        //        }
+        //    }
+        //    ImGui.Unindent();
+        //}
     }
 
     private static readonly Dictionary<string, Type?> AddonMapping = [];

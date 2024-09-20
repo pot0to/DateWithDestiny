@@ -1,7 +1,9 @@
+using Dalamud.Game.Network.Structures;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using ECommons;
 using ECommons.Automation;
+using ECommons.Singletons;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -56,12 +58,16 @@ public partial class MarketAdjuster : Tweak<MarketAdjusterConfiguration>
         Svc.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "RetainerSellList", OnRetainerSellList); // List of items
         Svc.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "RetainerSell", OnRetainerSell);
         Svc.AddonLifecycle.RegisterListener(AddonEvent.PreFinalize, "RetainerSell", OnRetainerSell);
+        Events.ListingsStart += OnListingsStart;
+        Events.ListingsEnd += OnListingsEnd;
     }
 
     public override void Disable()
     {
         Svc.AddonLifecycle.UnregisterListener(OnRetainerSellList);
         Svc.AddonLifecycle.UnregisterListener(OnRetainerSell);
+        Events.ListingsStart -= OnListingsStart;
+        Events.ListingsEnd -= OnListingsEnd;
         TaskManager.Abort();
     }
 
@@ -70,6 +76,19 @@ public partial class MarketAdjuster : Tweak<MarketAdjusterConfiguration>
         base.DrawConfig();
         if (ImGui.Button("cancel"))
             TaskManager.Abort();
+    }
+
+    private static bool SearchRunning;
+    private void OnListingsStart()
+    {
+        Svc.Log.Info("search running!");
+        SearchRunning = true;
+    }
+
+    private void OnListingsEnd(IReadOnlyList<IMarketBoardItemListing> listings)
+    {
+        Svc.Log.Info("search done!");
+        SearchRunning = false;
     }
 
     private void OnRetainerSell(AddonEvent eventType, AddonArgs addonInfo)
@@ -110,6 +129,7 @@ public partial class MarketAdjuster : Tweak<MarketAdjusterConfiguration>
 
     private void EnqueueSingleItem(int index)
     {
+        TaskManager.Enqueue(() => !SearchRunning);
         TaskManager.Enqueue(() => ClickSellingItem(index));
         TaskManager.EnqueueDelay(100);
         TaskManager.Enqueue(ClickAdjustPrice);
@@ -154,7 +174,7 @@ public partial class MarketAdjuster : Tweak<MarketAdjusterConfiguration>
 
     private static unsafe bool? ClickAdjustPrice()
     {
-        if (TryGetAddonByName<AtkUnitBase>("ContextMenu", out var addon) && IsAddonReady(addon))
+        if (TryGetAddonByName<AtkUnitBase>("ContextMenu", out var addon) && IsAddonReady(addon) && !SearchRunning)
         {
             Callback.Fire(addon, true, 0, 0, 0, 0, 0);
             return true;
@@ -165,7 +185,7 @@ public partial class MarketAdjuster : Tweak<MarketAdjusterConfiguration>
 
     private static unsafe bool? ClickComparePrice()
     {
-        if (TryGetAddonByName<AtkUnitBase>("RetainerSell", out var addon) && IsAddonReady(addon))
+        if (TryGetAddonByName<AtkUnitBase>("RetainerSell", out var addon) && IsAddonReady(addon) && !SearchRunning)
         {
             CurrentItemPrice = addon->AtkValues[5].Int;
             IsCurrentItemHQ = Marshal.PtrToStringUTF8((nint)addon->AtkValues[1].String)!.Contains(''); // hq symbol
@@ -233,13 +253,7 @@ public partial class MarketAdjuster : Tweak<MarketAdjusterConfiguration>
 
             if (CurrentMarketLowestPrice - Config.PriceReduction < Config.LowestAcceptablePrice)
             {
-                var message = GetSeString("Item is listed lower than minimum price, skipping",
-                                                       SeString.CreateItemLink(
-                                                           CurrentItemSearchItemID,
-                                                           IsCurrentItemHQ
-                                                               ? ItemPayload.ItemKind.Hq
-                                                               : ItemPayload.ItemKind.Normal), CurrentMarketLowestPrice,
-                                                       CurrentItemPrice, Config.LowestAcceptablePrice);
+                var message = GetSeString("Item is listed lower than minimum price, skipping", SeString.CreateItemLink(CurrentItemSearchItemID, IsCurrentItemHQ ? ItemPayload.ItemKind.Hq : ItemPayload.ItemKind.Normal), CurrentMarketLowestPrice, CurrentItemPrice, Config.LowestAcceptablePrice);
                 ModuleMessage(message);
 
                 Callback.Fire((AtkUnitBase*)addon, true, 1);
@@ -250,13 +264,7 @@ public partial class MarketAdjuster : Tweak<MarketAdjusterConfiguration>
 
             if (Config.MaxPriceReduction != 0 && CurrentItemPrice - CurrentMarketLowestPrice > Config.LowestAcceptablePrice)
             {
-                var message = GetSeString("Item has exceeded maximum acceptable reduction, skipping",
-                                                       SeString.CreateItemLink(
-                                                           CurrentItemSearchItemID,
-                                                           IsCurrentItemHQ
-                                                               ? ItemPayload.ItemKind.Hq
-                                                               : ItemPayload.ItemKind.Normal), CurrentMarketLowestPrice,
-                                                       CurrentItemPrice, Config.MaxPriceReduction);
+                var message = GetSeString("Item has exceeded maximum acceptable reduction, skipping", SeString.CreateItemLink(CurrentItemSearchItemID, IsCurrentItemHQ ? ItemPayload.ItemKind.Hq : ItemPayload.ItemKind.Normal), CurrentMarketLowestPrice, CurrentItemPrice, Config.MaxPriceReduction);
                 ModuleMessage(message);
 
                 Callback.Fire((AtkUnitBase*)addon, true, 1);

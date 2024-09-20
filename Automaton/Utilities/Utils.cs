@@ -116,12 +116,7 @@ public static class Utils
     public static bool AllNull(params object[] objects) => objects.All(s => s == null);
     public static bool AnyNull(params object[] objects) => objects.Any(s => s == null);
 
-    public static T? GetWindow<T>() where T : Window
-    {
-        if (!typeof(T).IsSubclassOf(typeof(Window)))
-            return null;
-        return EzConfigGui.WindowSystem.Windows.FirstOrDefault(w => w.GetType() == typeof(T)) as T;
-    }
+    public static T? GetWindow<T>() where T : Window => !typeof(T).IsSubclassOf(typeof(Window)) ? null : EzConfigGui.WindowSystem.Windows.FirstOrDefault(w => w.GetType() == typeof(T)) as T;
 
     public static void RemoveWindow<T>() where T : Window
     {
