@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace Automaton.Utilities;
 
-public static class Structs
+public static unsafe class Structs
 {
     [StructLayout(LayoutKind.Explicit)]
     public unsafe struct PlayerController
@@ -139,5 +139,17 @@ public static class Structs
 
         [FieldOffset(0)] public AgentInterface AgentInterface;
         [FieldOffset(0x28)] public AgentData* Data;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public struct AgentWorldTravel
+    {
+        [FieldOffset(0)]
+        public AgentInterface AgentInterface;
+
+        [FieldOffset(76)]
+        public uint WorldToTravel;
+
+        public static AgentWorldTravel* Instance() => (AgentWorldTravel*)AgentModule.Instance()->GetAgentByInternalId(AgentId.WorldTravel);
     }
 }

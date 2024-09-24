@@ -71,12 +71,12 @@ public unsafe static class Player
     public static Job GetJob(this IPlayerCharacter pc) => (Job)pc.ClassJob.Id;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsNear(this IPlayerCharacter pc, CSGameObject obj, float distance = 3) => pc.Distance(obj) < distance;
-    public static bool IsNear(this IPlayerCharacter pc, DGameObject obj, float distance = 3) => pc.Distance(obj) < distance;
-    public static bool IsNear(this IPlayerCharacter pc, Vector3 pos, float distance = 3) => pc.Distance(pos) < distance;
-    public static float Distance(this IPlayerCharacter pc, CSGameObject obj) => Vector3.Distance(pc.Position, obj.Position);
-    public static float Distance(this IPlayerCharacter pc, DGameObject obj) => Vector3.Distance(pc.Position, obj.Position);
-    public static float Distance(this IPlayerCharacter pc, Vector3 pos) => Vector3.Distance(pc.Position, pos);
+    public static bool IsNear(CSGameObject obj, float distance = 3) => IsNear(obj, distance);
+    public static bool IsNear(DGameObject obj, float distance = 3) => IsNear(obj, distance);
+    public static bool IsNear(Vector3 pos, float distance = 3) => Distance(pos) < distance;
+    public static float Distance(CSGameObject obj) => Distance(obj.Position);
+    public static float Distance(DGameObject obj) => Distance(obj.Position);
+    public static float Distance(Vector3 pos) => Vector3.Distance(Object.Position, pos);
 
     private static int EquipAttemptLoops = 0;
     public static void Equip(uint itemID)

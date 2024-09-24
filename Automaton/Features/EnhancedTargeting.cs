@@ -75,7 +75,7 @@ public class EnhancedTargeting : Tweak<EnhancedTargetingConfiguration>
 
     private IOrderedEnumerable<DGameObject> GetEligibleTargets()
         => Svc.Objects.Where(o => o.IsTargetable)
-        .OrderBy(Player.Object.Distance);
+        .OrderBy(Player.Distance);
 
     private bool MeetsCriteria(DGameObject obj)
         => (Config.HighlightParty || !Objects.InParty(obj))

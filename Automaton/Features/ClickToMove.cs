@@ -32,7 +32,7 @@ public unsafe class ClickToMove : Tweak<ClickToMoveConfiguration>
     private void MoveTo(IFramework framework)
     {
         if (!Player.Available || Player.Occupied) return;
-        if (Player.Object.IsNear(destination, 0.0025f)) movement.Enabled = false;
+        if (Player.IsNear(destination, 0.0025f)) movement.Enabled = false;
 
         if (IsKeyPressed(ECommons.Interop.LimitedKeys.LeftMouseButton) && Utils.IsClickingInGameWorld())
         {

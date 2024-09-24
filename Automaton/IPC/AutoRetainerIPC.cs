@@ -7,7 +7,7 @@ public class AutoRetainerIPC
 {
     public const string Name = "AutoRetainer";
     public const string Repo = "https://love.puni.sh/ment.json";
-    public AutoRetainerIPC() => EzIPC.Init(this, "AutoRetainer");
+    public AutoRetainerIPC() => EzIPC.Init(this, Name);
     public static bool Installed => Utils.HasPlugin(Name);
 
     [EzIPC("PluginState.%m")] public readonly Func<bool> IsBusy;
