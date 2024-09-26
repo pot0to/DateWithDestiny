@@ -11,21 +11,21 @@ public class FcChestTabRenameConfiguration
     [StringConfig] public string TabFive = string.Empty;
 }
 
-[Tweak]
+[Tweak(outdated: true)]
 internal class FCChestTabRename : Tweak<FcChestTabRenameConfiguration>
 {
     public override string Name => "Custom FC Chest Tab Names";
-    public override string Description => "Rename the tabs in the Free Company chest to whatever your heart desires.";
+    public override string Description => "This has been moved to SimpleTweaks.";
 
-    public override void Enable()
-    {
-        Svc.AddonLifecycle.RegisterListener(AddonEvent.PreDraw, "", PreDraw);
-    }
+    //public override void Enable()
+    //{
+    //    Svc.AddonLifecycle.RegisterListener(AddonEvent.PreDraw, "", PreDraw);
+    //}
 
-    public override void Disable()
-    {
-        Svc.AddonLifecycle.UnregisterListener(PreDraw);
-    }
+    //public override void Disable()
+    //{
+    //    Svc.AddonLifecycle.UnregisterListener(PreDraw);
+    //}
 
     private unsafe void PreDraw(AddonEvent type, AddonArgs args)
     {
