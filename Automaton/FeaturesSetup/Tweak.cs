@@ -1,3 +1,5 @@
+using Automaton.IPC;
+using AutoRetainerAPI;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Hooking;
@@ -21,6 +23,9 @@ public abstract partial class Tweak : ITweak
         IsDebug = CachedType.GetCustomAttribute<TweakAttribute>()?.Debug ?? false;
 
         TaskManager = new();
+
+        if (Requirements.Any(r => r.InternalName == AutoRetainerIPC.Name))
+            AutoRetainer = new(Name);
 
         try
         {
@@ -74,6 +79,7 @@ public abstract partial class Tweak : ITweak
     public bool Disabled { get; protected set; }
 
     protected TaskManager TaskManager = null!;
+    protected AutoRetainerApi AutoRetainer = null!;
 
     public virtual void SetupAddressHooks() { }
     public virtual void SetupVTableHooks() { }

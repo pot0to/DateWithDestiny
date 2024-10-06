@@ -32,6 +32,7 @@ public class Automaton : IDalamudPlugin
     internal DeliverooIPC Deliveroo;
     internal AutoRetainerIPC AutoRetainer;
     internal Memory Memory;
+    internal bool UsingARPostProcess;
 
     public Automaton(IDalamudPluginInterface pluginInterface)
     {

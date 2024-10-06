@@ -14,4 +14,6 @@ public class AutoRetainerIPC
     [EzIPC("PluginState.%m")] public readonly Func<int> GetInventoryFreeSlotCount;
     [EzIPC] public readonly Func<bool> GetMultiModeEnabled;
     [EzIPC] public readonly Action<bool> SetMultiModeEnabled;
+    [EzIPC] public readonly Func<bool> GetSuppressed;
+    [EzIPC] public readonly Action<bool> SetSuppressed;
 }

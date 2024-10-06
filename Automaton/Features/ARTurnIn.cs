@@ -21,14 +21,14 @@ internal class ARTurnIn : Tweak<ARTurnInConfiguration>
 
     public override void Enable()
     {
-        P.AutoRetainerAPI.OnCharacterPostprocessStep += CheckCharacter;
-        P.AutoRetainerAPI.OnCharacterReadyToPostProcess += TurnIn;
+        AutoRetainer.OnCharacterPostprocessStep += CheckCharacter;
+        AutoRetainer.OnCharacterReadyToPostProcess += TurnIn;
     }
 
     public override void Disable()
     {
-        P.AutoRetainerAPI.OnCharacterPostprocessStep -= CheckCharacter;
-        P.AutoRetainerAPI.OnCharacterReadyToPostProcess -= TurnIn;
+        AutoRetainer.OnCharacterPostprocessStep -= CheckCharacter;
+        AutoRetainer.OnCharacterReadyToPostProcess -= TurnIn;
     }
 
     public override void DrawConfig()
@@ -53,7 +53,7 @@ internal class ARTurnIn : Tweak<ARTurnInConfiguration>
             ImGui.TextUnformatted($"o:{Player.Occupied} m:{Player.IsMoving} c:{Player.IsCasting} l:{Player.AnimationLock}");
 
         if (ImGui.Button("FinishCharacterPostProcess"))
-            P.AutoRetainerAPI.FinishCharacterPostProcess();
+            AutoRetainer.FinishCharacterPostProcess();
 
         if (ImGui.Button("TurnIn (All Tasks Combined)"))
             TurnIn();
@@ -88,8 +88,11 @@ internal class ARTurnIn : Tweak<ARTurnInConfiguration>
             Svc.Log.Info("Skipping post process turn in for character: character excluded.");
         else
         {
-            if (P.AutoRetainer.GetInventoryFreeSlotCount() <= Config.InventoryFreeSlotThreshold)
-                P.AutoRetainerAPI.RequestCharacterPostprocess();
+            if (!P.UsingARPostProcess && P.AutoRetainer.GetInventoryFreeSlotCount() <= Config.InventoryFreeSlotThreshold)
+            {
+                P.UsingARPostProcess = true;
+                AutoRetainer.RequestCharacterPostprocess();
+            }
             else
                 Svc.Log.Info("Skipping post process turn in for character: inventory above threshold.");
         }
@@ -103,7 +106,8 @@ internal class ARTurnIn : Tweak<ARTurnInConfiguration>
         TaskManager.EnqueueDelay(1000);
         TaskManager.Enqueue(GoHome, configuration: LSConfig);
         TaskManager.EnqueueDelay(1000);
-        TaskManager.Enqueue(P.AutoRetainerAPI.FinishCharacterPostProcess);
+        TaskManager.Enqueue(AutoRetainer.FinishCharacterPostProcess);
+        TaskManager.Enqueue(() => P.UsingARPostProcess = false);
     }
 
     // bless lifestream for doing literally all the annoying work for me already
