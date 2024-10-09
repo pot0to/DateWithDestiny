@@ -82,7 +82,7 @@ public unsafe class AutoFollow : Tweak<AutoFollowConfiguration>
 
     private void Follow(IFramework framework)
     {
-        if (!Player.Available) return;
+        if (!Player.Available || TaskManager.IsBusy) return;
 
         master = Svc.Objects.FirstOrDefault(x => x.EntityId == masterObjectID || !Config.AutoFollowName.IsNullOrEmpty() && x.Name.TextValue.Equals(Config.AutoFollowName, StringComparison.InvariantCultureIgnoreCase));
 
@@ -93,6 +93,33 @@ public unsafe class AutoFollow : Tweak<AutoFollowConfiguration>
 
         if (master.ObjectKind == Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player)
         {
+            // prioritise riding pillion
+            //if (Svc.Party.Any(p => p.ObjectId == master.GameObjectId) && GetRow<Mount>(master.Character()->Mount.MountId)?.ExtraSeats > 0)
+            //{
+            //    if (P.Memory.RidePillion == null) goto Mount;
+            //    // ignore DistanceToKeep
+            //    if (!Player.IsNear(master))
+            //    {
+            //        movement.Enabled = true;
+            //        movement.DesiredPosition = master.Position;
+            //        return;
+            //    }
+            //    else
+            //    {
+            //        movement.Enabled = false;
+            //        if (Svc.Condition[ConditionFlag.Mounted])
+            //        {
+            //            ActionManager.Instance()->UseAction(ActionType.GeneralAction, 23);
+            //            return;
+            //        }
+            //        TaskManager.Enqueue(() => Svc.Log.Debug("Detected mounted party member with extra seats, mounting..."));
+            //        TaskManager.Enqueue(() => P.Memory.RidePillion(master.BattleChara(), 10));
+            //        TaskManager.Enqueue(() => Svc.Condition[ConditionFlag.Mounted]);
+            //        return;
+            //    }
+            //}
+
+        Mount:
             // mount
             if (master.Character()->IsMounted() && CanMount())
             {
