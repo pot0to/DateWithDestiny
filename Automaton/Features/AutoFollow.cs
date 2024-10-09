@@ -11,12 +11,11 @@ namespace Automaton.Features;
 
 public class AutoFollowConfiguration
 {
-    [EnumConfig] public Utilities.Utils.MovementType MovementType;
+    [EnumConfig] public Utils.MovementType MovementType;
 
     [IntConfig(DefaultValue = 3)] public int DistanceToKeep = 3;
     [IntConfig] public int DisableIfFurtherThan;
     [BoolConfig] public bool OnlyInDuty;
-    [BoolConfig] public bool ChangeMasterOnChat;
     [BoolConfig] public bool MountAndFly;
     [StringConfig] public string AutoFollowName = string.Empty;
 }
@@ -94,6 +93,7 @@ public unsafe class AutoFollow : Tweak<AutoFollowConfiguration>
 
         if (master.ObjectKind == Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player)
         {
+            // mount
             if (master.Character()->IsMounted() && CanMount())
             {
                 movement.Enabled = false;
@@ -101,6 +101,7 @@ public unsafe class AutoFollow : Tweak<AutoFollowConfiguration>
                 return;
             }
 
+            // fly
             if (Config.MountAndFly && ((Structs.Character*)master.Address)->IsFlying != 0 && !Svc.Condition[ConditionFlag.InFlight] && Svc.Condition[ConditionFlag.Mounted])
             {
                 movement.Enabled = false;
@@ -110,16 +111,14 @@ public unsafe class AutoFollow : Tweak<AutoFollowConfiguration>
                 return;
             }
 
-            if (!(master.Character()->IsMounted() && Svc.Condition[ConditionFlag.Mounted]) && TerritorySupportsMounting())
+            // dismount
+            if (!master.Character()->IsMounted() && Svc.Condition[ConditionFlag.Mounted])
             {
                 movement.Enabled = false;
-                master.BattleChara()->GetStatusManager()->RemoveStatus(10);
-                ActionManager.Instance()->UseAction(ActionType.GeneralAction, 9);
+                ActionManager.Instance()->UseAction(ActionType.GeneralAction, 23);
                 return;
             }
         }
-
-        // set dismount logic here
 
         if (Vector3.Distance(Player.Position, master.Position) <= Config.DistanceToKeep) { movement.Enabled = false; return; }
 

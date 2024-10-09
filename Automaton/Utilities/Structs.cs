@@ -67,7 +67,7 @@ public static unsafe class Structs
     [StructLayout(LayoutKind.Explicit, Size = 0x1BD0)]
     public unsafe partial struct Character
     {
-        [FieldOffset(0x60C)] public byte IsFlying;
+        [FieldOffset(0x386)] public byte IsFlying;
     }
 
     [StructLayout(LayoutKind.Explicit, Size = 0x38)]
