@@ -119,7 +119,7 @@ public unsafe class AutoFollow : Tweak<AutoFollowConfiguration>
             //    }
             //}
 
-        Mount:
+            // Mount:
             // mount
             if (master.Character()->IsMounted() && CanMount())
             {
