@@ -60,7 +60,9 @@ public enum DateWithDestinyState
     InteractingWithNpc,
     InCombat,
     ChangingInstances,
-    ExchangingVouchers
+    ExchangingVouchers,
+    Dead,
+    SummonChocobo
 }
 
 [Tweak, Requirement(NavmeshIPC.Name, NavmeshIPC.Repo)]
@@ -73,12 +75,16 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private static Vector3 TargetPos;
     private readonly Throttle action = new();
     private Random random = null!;
-
-    public DateWithDestinyState State { get; set; }
+    private DateWithDestinyState State { get; set; }
+    private DateWithDestinyState PreviousState { get; set; }
+    private uint ZoneToFarm { get; set; }
 
     public DateWithDestiny()
     {
         State = DateWithDestinyState.Ready;
+        PreviousState = DateWithDestinyState.Ready;
+        ZoneToFarm = Svc.ClientState.TerritoryType;
+        P.TaskManager.AbortOnTimeout = true;
     }
 
     private enum Z
