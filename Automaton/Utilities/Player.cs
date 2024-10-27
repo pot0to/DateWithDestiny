@@ -17,7 +17,7 @@ using PlayerController = Automaton.Utilities.Structs.PlayerController;
 
 namespace Automaton.Utilities;
 
-public unsafe static class Player
+public static unsafe class Player
 {
     public static IPlayerCharacter Object => Svc.ClientState.LocalPlayer;
     public static bool Available => Svc.ClientState.LocalPlayer != null;

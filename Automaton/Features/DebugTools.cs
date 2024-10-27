@@ -1,11 +1,15 @@
-﻿using Dalamud.Game.ClientState.Keys;
+﻿using Automaton.IPC;
+using Automaton.UI;
+using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Gui.Toast;
 using ECommons;
 using ECommons.Interop;
+using ECommons.SimpleGui;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using ImGuiNET;
+using Lumina.Excel.GeneratedSheets2;
 
 namespace Automaton.Features;
 
@@ -57,6 +61,10 @@ public class DebugTools : Tweak<DebugToolsConfiguration>
     private void OnTeleportClick(string command, string arguments)
     {
         tpActive ^= true;
+        if (tpActive)
+            EzConfigGui.WindowSystem.AddWindow(new MousePositionOverlay());
+        else
+            EzConfigGui.RemoveWindow<MousePositionOverlay>();
         Svc.Toasts.ShowNormal($"TPClick {(tpActive ? "Enabled" : "Disabled")}", new ToastOptions() { Speed = ToastSpeed.Fast });
     }
 
@@ -88,16 +96,19 @@ public class DebugTools : Tweak<DebugToolsConfiguration>
     [CommandHandler(["/move", "/speed"], "Modify your movement speed", nameof(Config.EnableMoveSpeed))]
     private void OnMoveSpeed(string command, string arguments) => Player.Speed = float.TryParse(arguments, out var speed) ? speed : 1.0f;
 
+    public static bool ShowMouseOverlay;
     private bool IsLButtonPressed;
     private bool tpActive;
     private bool ncActive;
     private unsafe void OnUpdate(IFramework framework)
     {
         if (!Player.Available || Player.Occupied) return;
+        ShowMouseOverlay = false;
         if (Config.EnableTPClick && tpActive)
         {
             if (!Framework.Instance()->WindowInactive && IsKeyPressed([LimitedKeys.LeftControlKey, LimitedKeys.RightControlKey]) && Utils.IsClickingInGameWorld())
             {
+                ShowMouseOverlay = true;
                 var pos = ImGui.GetMousePos();
                 if (Svc.GameGui.ScreenToWorld(pos, out var res))
                 {
