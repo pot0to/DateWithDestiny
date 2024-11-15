@@ -20,7 +20,7 @@ public class EnhancedDutyStartEndConfiguration
     public int TimeToWait;
 }
 
-[Tweak]
+[Tweak(HasHooks = true)]
 public class EnhancedDutyStartEnd : Tweak<EnhancedDutyStartEndConfiguration>
 {
     public override string Name => "Enhanced Duty Start/End";

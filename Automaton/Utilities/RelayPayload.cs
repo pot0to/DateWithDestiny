@@ -1,6 +1,6 @@
 ﻿using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using System.IO;
 
 namespace Automaton.Utilities;
@@ -9,7 +9,7 @@ public sealed class RelayPayload(MapLinkPayload mapLink, uint worldId, uint? ins
     private const byte EmbeddedInfoTypeByte = (byte)(EmbeddedInfoType.DalamudLink + 4);
 
     public MapLinkPayload MapLink => mapLink;
-    public World World => GetRow<World>(worldId)!;
+    public World World => GetRow<World>(worldId)!.Value;
     public uint? Instance => instance ?? default;
     public uint RelayType => relayType;
     public uint OriginChannel => originChannel;

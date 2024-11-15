@@ -10,7 +10,7 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using static ECommons.GameFunctions.ObjectFunctions;
 
 namespace Automaton.Features;
@@ -250,7 +250,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 if (YokaiMinions.Contains(CurrentCompanion))
                 {
                     if (Config.EquipWatch && HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
-                        Player.Equip(15222);
+                        PlayerEx.Equip(15222);
 
                     var medal = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
                     if (GetItemCount(medal) >= 10)
@@ -320,14 +320,14 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private IOrderedEnumerable<IFate> GetFates() => Svc.Fates.Where(FateConditions)
         .OrderByDescending(x =>
         Config.PrioritizeBonusFates
-        && x.HasExpBonus
+        && x.HasBonus
         && (
         !Config.BonusWhenTwist
         || Player.Status.FirstOrDefault(x => TwistOfFateStatusIDs.Contains(x.StatusId)) != null)
         )
         .ThenByDescending(x => Config.PrioritizeStartedFates && x.Progress > 0)
-        .ThenBy(f => Vector3.Distance(Player.Position, f.Position));
-    public bool FateConditions(IFate f) => f.GameData.Rule == 1 && f.State != FateState.Preparation && f.Duration <= Config.MaxDuration && f.Progress <= Config.MaxProgress && f.TimeRemaining > Config.MinTimeRemaining && !Config.blacklist.Contains(f.FateId);
+        .ThenBy(f => Vector3.Distance(PlayerEx.Position, f.Position));
+    public bool FateConditions(IFate f) => f.GameData.Value.Rule == 1 && f.State != Dalamud.Game.ClientState.Fates.FateState.Preparation && f.Duration <= Config.MaxDuration && f.Progress <= Config.MaxProgress && f.TimeRemaining > Config.MinTimeRemaining && !Config.blacklist.Contains(f.FateId);
 
     private unsafe DGameObject? GetMobTargetingPlayer()
         => Svc.Objects
@@ -355,7 +355,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         // Deprioritize mobs in combat with other players (hopefully avoid botlike pingpong behavior in trash fates)
         .ThenBy(x => x.GetNameplateKind() == NameplateKind.HostileEngagedOther && !x.IsTargetingPlayer())
         // Prioritize closest enemy        
-        .ThenBy(x => Math.Floor(Vector3.Distance(Player.Position, x.Position)))
+        .ThenBy(x => Math.Floor(Vector3.Distance(PlayerEx.Position, x.Position)))
         // Prioritize lowest HP enemy
         .ThenBy(x => (x as ICharacter)?.CurrentHp)
         .FirstOrDefault();

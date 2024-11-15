@@ -5,7 +5,7 @@ using Dalamud.Game.Text.SeStringHandling.Payloads;
 using ECommons;
 using ECommons.GameFunctions;
 using FFXIVClientStructs.FFXIV.Client.Game;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 
 namespace Automaton.Features;
 
@@ -87,8 +87,8 @@ public unsafe class AutoFollow : Tweak<AutoFollowConfiguration>
         master = Svc.Objects.FirstOrDefault(x => x.EntityId == masterObjectID || !Config.AutoFollowName.IsNullOrEmpty() && x.Name.TextValue.Equals(Config.AutoFollowName, StringComparison.InvariantCultureIgnoreCase));
 
         if (master == null) { movement.Enabled = false; return; }
-        if (Config.DisableIfFurtherThan > 0 && !Player.IsNear(master, Config.DisableIfFurtherThan)) { movement.Enabled = false; return; }
-        if (Config.OnlyInDuty && !Player.InDuty) { movement.Enabled = false; return; }
+        if (Config.DisableIfFurtherThan > 0 && Player.DistanceTo(master) >= Config.DisableIfFurtherThan) { movement.Enabled = false; return; }
+        if (Config.OnlyInDuty && !Player.IsInDuty) { movement.Enabled = false; return; }
         if (Svc.Condition[ConditionFlag.InFlight]) { TaskManager.Abort(); }
 
         if (master.ObjectKind == Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player)
@@ -147,7 +147,7 @@ public unsafe class AutoFollow : Tweak<AutoFollowConfiguration>
             }
         }
 
-        if (Vector3.Distance(Player.Position, master.Position) <= Config.DistanceToKeep) { movement.Enabled = false; return; }
+        if (Player.DistanceTo(master) <= Config.DistanceToKeep) { movement.Enabled = false; return; }
 
         movement.Enabled = true;
         movement.DesiredPosition = master.Position;
@@ -155,7 +155,7 @@ public unsafe class AutoFollow : Tweak<AutoFollowConfiguration>
 
     private static bool CanMount() => !Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.Mounting] && !Svc.Condition[ConditionFlag.InCombat] && !Svc.Condition[ConditionFlag.Casting];
 
-    private static bool TerritorySupportsMounting() => GetRow<TerritoryType>(Player.Territory)?.Unknown32 != 0;
+    private static bool TerritorySupportsMounting() => GetRow<TerritoryType>(Player.Territory)?.Unknown4 != 0;
 
     private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
     {

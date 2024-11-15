@@ -31,8 +31,8 @@ public unsafe class ClickToMove : Tweak<ClickToMoveConfiguration>
     private Vector3 destination = Vector3.Zero;
     private void MoveTo(IFramework framework)
     {
-        if (!Player.Available || Player.Occupied) return;
-        if (Player.IsNear(destination, 0.0025f)) movement.Enabled = false;
+        if (!Player.Available || PlayerEx.Occupied) return;
+        if (Player.DistanceTo(destination) < 0.0025f) movement.Enabled = false;
 
         if (IsKeyPressed(ECommons.Interop.LimitedKeys.LeftMouseButton) && Utils.IsClickingInGameWorld())
         {

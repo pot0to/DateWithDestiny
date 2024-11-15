@@ -6,6 +6,7 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Info;
@@ -253,7 +254,7 @@ internal unsafe class Memory
     {
         try
         {
-            if (GetRow<Lumina.Excel.GeneratedSheets.TerritoryType>(Player.Territory)?.Unknown32 == 0) // don't detour in zones where flight is impossible normally
+            if (GetRow<Lumina.Excel.Sheets.TerritoryType>(Player.Territory)?.Unknown4 == 0) // don't detour in zones where flight is impossible normally
                 return IsFlightProhibitedHook.Original(a1);
             else if (PlayerState.Instance()->IsAetherCurrentZoneComplete(Svc.ClientState.TerritoryType)) // don't detour in zones where you can already fly
                 return IsFlightProhibitedHook.Original(a1);
@@ -281,8 +282,16 @@ internal unsafe class Memory
 
     private byte ReturnDetour(AgentInterface* agent)
     {
-        if (ActionManager.Instance()->GetActionStatus(ActionType.GeneralAction, 6) != 0 || GameMain.IsInPvPInstance())
+        if (ActionManager.Instance()->GetActionStatus(ActionType.GeneralAction, 6) != 0 || PlayerEx.InPvP)
             return ReturnHook.Original(agent);
+
+        if (Svc.Party.Length > 1)
+        {
+            if (Svc.Party[0]?.Name == Svc.ClientState.LocalPlayer?.Name)
+                Chat.Instance.SendMessage("/partycmd breakup");
+            else
+                Chat.Instance.SendMessage("/leave");
+        }
 
         ExecuteCommand(214);
         return 1;
@@ -352,5 +361,13 @@ internal unsafe class Memory
     private bool CheckTargetPositionDetour(nint a1, nint a2, nint a3, byte a4, byte a5) => true;
     private unsafe bool EventCancelledDetour(EventFramework* framework) => false;
     private unsafe float CheckTargetDistanceDetour(CSGameObject* localPlayer, CSGameObject* target) => 0f;
+    #endregion
+
+    #region Camera Object Culling
+    internal delegate byte ShouldDrawDelegate(CameraBase* thisPtr, GameObject* gameObject, Vector3* sceneCameraPos, Vector3* lookAtVector);
+    [EzHook("E8 ?? ?? ?? ?? 84 C0 75 18 48 8D 0D ?? ?? ?? ?? B3 01", false)]
+    internal readonly EzHook<ShouldDrawDelegate> ShouldDrawHook;
+
+    private byte ShouldDrawDetour(CameraBase* thisPtr, GameObject* gameObject, Vector3* sceneCameraPos, Vector3* lookAtVector) => 1;
     #endregion
 }

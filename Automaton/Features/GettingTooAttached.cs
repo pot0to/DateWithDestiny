@@ -6,7 +6,7 @@ using ECommons.Automation;
 using ECommons.UIHelpers.AddonMasterImplementations;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 
 namespace Automaton.Features;
 
@@ -68,7 +68,7 @@ public unsafe class GettingTooAttached : Tweak<GettingTooAttachedConfiguration>
     private void CheckForErrors(ref SeString message, ref bool isHandled)
     {
         var msg = message.ExtractText();
-        if (new[] { 7701, 7707 }.Any(x => msg == FindRow<LogMessage>(y => y?.RowId == x)?.Text.ExtractText()))
+        if (new[] { 7701, 7707 }.Any(x => msg == FindRow<LogMessage>(y => y.RowId == x)?.Text.ExtractText()))
         {
             ModuleMessage("Error while melding. Aborting Tasks.");
             CancelLoop();

@@ -1,6 +1,7 @@
 using Dalamud.Game.Text.SeStringHandling;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.STD;
+using Lumina.Excel.Sheets;
 using System.Drawing;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -8,7 +9,7 @@ using System.Text.RegularExpressions;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
 namespace Automaton.Utilities;
-public static partial class Extensions
+internal static partial class Extensions
 {
     public static uint Reverse(this uint value)
         => ((value & 0x000000FFu) << 24) | ((value & 0x0000FF00u) << 8) |
@@ -101,4 +102,28 @@ public static partial class Extensions
     }
     public static void AddSeString(this SeStringBuilder builder, SeString str) => builder.AddRange(str.Payloads);
 
+    internal record IngredientExtension()
+    {
+        public required Item Item { get; init; }
+        public required int Amount { get; init; }
+    }
+
+    public static IEnumerable<IngredientExtension> Ingredients(this Recipe recipe)
+    {
+        var output = new List<IngredientExtension>();
+        for (var i = 0; i < recipe.Ingredient.Count; i++)
+        {
+            try
+            {
+                var item = recipe.Ingredient[i].Value;
+                var amount = recipe.AmountIngredient[i];
+
+                output.Add(new IngredientExtension() { Item = item, Amount = amount });
+            }
+            catch { }
+        }
+
+        return output;
+    }
 }
+

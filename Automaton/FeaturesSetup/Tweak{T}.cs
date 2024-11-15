@@ -67,7 +67,7 @@ public abstract class Tweak<T> : Tweak
             if (enabled)
             {
                 foreach (var c in attr.Commands)
-                    EnableCommand(c, attr.HelpMessage, methodInfo);
+                    EnableCommand(c, attr.HelpMessage, methodInfo, attr.Hooks);
             }
         }
     }
@@ -112,7 +112,7 @@ public abstract class Tweak<T> : Tweak
             if (enabled)
             {
                 foreach (var c in attr.Commands)
-                    EnableCommand(c, attr.HelpMessage, methodInfo);
+                    EnableCommand(c, attr.HelpMessage, methodInfo, attr.Hooks);
             }
             else
             {
@@ -124,11 +124,11 @@ public abstract class Tweak<T> : Tweak
         base.OnConfigChangeInternal(fieldName);
     }
 
-    private void EnableCommand(string command, string helpMessage, MethodInfo methodInfo)
+    private void EnableCommand(string command, string helpMessage, MethodInfo methodInfo, bool hooks)
     {
         var handler = methodInfo.CreateDelegate<IReadOnlyCommandInfo.HandlerDelegate>(this);
 
-        if (Svc.Commands.AddHandler(command, new CommandInfo(handler) { HelpMessage = helpMessage }))
+        if (!(hooks && P.MemoryError) && Svc.Commands.AddHandler(command, new CommandInfo(handler) { HelpMessage = helpMessage }))
         {
             Log($"Added CommandHandler for {command}");
         }

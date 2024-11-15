@@ -2,7 +2,7 @@
 
 namespace Automaton.Features;
 
-[Tweak(debug: true)]
+[Tweak(debug: true, HasHooks = true)]
 internal class PacketFirewall : Tweak
 {
     public override string Name => "Packet Firewall";

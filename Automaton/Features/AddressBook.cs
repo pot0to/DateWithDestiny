@@ -3,7 +3,7 @@ using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using ECommons.ImGuiMethods;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 
 namespace Automaton.Features;
 
@@ -22,8 +22,8 @@ public class AddressBook : Tweak<AddresBookConfiguration>
     public override void DrawConfig()
     {
         if (ImGui.InputText($"##NewLocation", ref _name, 50, ImGuiInputTextFlags.EnterReturnsTrue))
-            Config.Locations.Add((_name, Player.Territory, Player.Position));
-        ImGuiX.DrawSection($"Locations in {GetRow<TerritoryType>(Player.Territory)!.PlaceName.Value!.NameNoArticle}");
+            Config.Locations.Add((_name, Player.Territory, PlayerEx.Position));
+        ImGuiX.DrawSection($"Locations in {GetRow<TerritoryType>(Player.Territory)!.Value.PlaceName.Value!.NameNoArticle}");
 
         var locs = Config.Locations.Where(x => x.Territory == Player.Territory);
         foreach (var loc in locs)
@@ -40,7 +40,7 @@ public class AddressBook : Tweak<AddresBookConfiguration>
         var territories = Config.Locations.GroupBy(x => x.Territory);
         foreach (var t in territories)
         {
-            ImGuiX.DrawSection($"{GetRow<TerritoryType>(t.Key)!.PlaceName.Value!.NameNoArticle}", drawSeparator: false);
+            ImGuiX.DrawSection($"{GetRow<TerritoryType>(t.Key)!.Value.PlaceName.Value!.NameNoArticle}", drawSeparator: false);
             foreach (var loc in t)
             {
                 ImGuiEx.TextV(Colors.White, $"{loc.Name}: {loc.Position}");

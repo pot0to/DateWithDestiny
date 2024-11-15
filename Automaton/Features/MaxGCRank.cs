@@ -1,6 +1,6 @@
 ﻿namespace Automaton.Features;
 
-[Tweak]
+[Tweak(HasHooks = true)]
 internal class MaxGCRank : Tweak
 {
     public override string Name => "Enforce Expert Delivery";

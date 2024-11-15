@@ -8,25 +8,10 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 
 namespace Automaton.UI;
-internal class FateTrackerUI : Window
+internal class FateTrackerUI(DateWithDestiny tweak) : Window($"Fate Tracker##{Name}")
 {
-    private readonly DateWithDestiny _tweak;
+    private readonly DateWithDestiny _tweak = tweak;
     internal uint SelectedTerritory = 0;
-
-    public FateTrackerUI(DateWithDestiny tweak) : base($"Fate Tracker##{Name}")
-    {
-        _tweak = tweak;
-
-        //IsOpen = true;
-        //DisableWindowSounds = true;
-
-        //Flags |= ImGuiWindowFlags.NoSavedSettings;
-        //Flags |= ImGuiWindowFlags.NoResize;
-        //Flags |= ImGuiWindowFlags.NoMove;
-
-        //SizeCondition = ImGuiCond.Always;
-        //Size = new(360, 428);
-    }
 
     public override bool DrawConditions() => Player.Available;
 
@@ -75,7 +60,7 @@ internal class FateTrackerUI : Window
 
             ImGui.SameLine();
 
-            if (_tweak.Config.ShowFateBonusIndicator && fate.HasExpBonus)
+            if (_tweak.Config.ShowFateBonusIndicator && fate.HasBonus)
             {
                 ImGui.Image(Svc.Texture.GetFromGameIcon(new Dalamud.Interface.Textures.GameIconLookup(65001)).GetWrapOrEmpty().ImGuiHandle, new Vector2(ImGuiX.IconUnitHeight()));
 

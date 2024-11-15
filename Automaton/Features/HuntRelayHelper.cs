@@ -8,7 +8,7 @@ using ECommons.Automation;
 using ECommons.ExcelServices;
 using ECommons.ImGuiMethods;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using System.Data;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -200,22 +200,22 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                     switch (Config.AssumedLocality)
                     {
                         case Locality.PlayerHomeWorld:
-                            world = Player.Object.HomeWorld.GameData;
+                            world = Player.Object.HomeWorld.Value;
                             break;
                         case Locality.PlayerCurrentWorld:
-                            world = Player.Object.CurrentWorld.GameData;
+                            world = Player.Object.CurrentWorld.Value;
                             break;
                         case Locality.SenderHomeWorld:
                             world = sender.Payloads.OfType<TextPayload>()
-                                .Select(p => p.Text!.Contains((char)SeIconChar.CrossWorld) ? FindRow<World>(x => x!.IsPublic && p.Text.Split((char)SeIconChar.CrossWorld)[1].Contains(x.Name.RawString, StringComparison.OrdinalIgnoreCase)) : Player.Object.CurrentWorld.GameData)
-                                .FirstOrDefault(Player.Object.CurrentWorld.GameData);
+                                .Select(p => p.Text!.Contains((char)SeIconChar.CrossWorld) ? FindRow<World>(x => x!.IsPublic && p.Text.Split((char)SeIconChar.CrossWorld)[1].Contains(x.Name.ToString(), StringComparison.OrdinalIgnoreCase)) : Player.Object.CurrentWorld.Value)
+                                .FirstOrDefault(Player.Object.CurrentWorld.Value);
                             break;
                     }
                 }
                 if (world != null)
                 {
-                    Svc.Log.Verbose($"Detected world {world.Name} and instance {instance} in {nameof(MapLinkPayload)} message: {message}");
-                    message.Payloads.AddRange([RelayLinkPayload, new IconPayload(BitmapFontIcon.NotoriousMonster), new RelayPayload(mlp, world.RowId, instance, relayType, (uint)type).ToRawPayload(), RawPayload.LinkTerminator]);
+                    Svc.Log.Verbose($"Detected world {world.Value.Name} and instance {instance} in {nameof(MapLinkPayload)} message: {message}");
+                    message.Payloads.AddRange([RelayLinkPayload, new IconPayload(BitmapFontIcon.NotoriousMonster), new RelayPayload(mlp, world.Value.RowId, instance, relayType, (uint)type).ToRawPayload(), RawPayload.LinkTerminator]);
                 }
                 else
                     Svc.Log.Info($"Failed to detect world in {nameof(MapLinkPayload)} message: {message}");
@@ -243,7 +243,7 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
             // TODO: add a check to see if the player is in novice network before sending
             if ((XivChatType)payload.OriginChannel == channel && Config.DontRepeatRelays) continue;
             if (channel.GetAttribute<XivChatTypeInfoAttribute>()!.FancyName.StartsWith("Linkshell") && Player.CurrentWorld != Player.HomeWorld) continue;
-            if (islocal && Player.Object.CurrentWorld.GameData != payload.World && Config.OnlySendLocalHuntsToLocalChannels) continue;
+            if (islocal && Player.Object.CurrentWorld.Value.RowId != payload.World.RowId && Config.OnlySendLocalHuntsToLocalChannels) continue;
 
             TaskManager.EnqueueDelay(500);
 #pragma warning disable CS0618 // Type or member is obsolete
@@ -343,9 +343,9 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         World? partial = null;
         if (Config.AllowPartialWorldMatches)
             foreach (var word in RemoveConflicts(text).Split(' ').Where(t => !ECommons.GenericHelpers.IsNullOrEmpty(t) && t.Length > 2))
-                partial ??= FindRow<World>(x => x!.IsPublic && x.DataCenter.Value!.Name == Player.CurrentDataCenter && x.Name.RawString.Contains(RemoveNonAlphaNumeric(word), StringComparison.OrdinalIgnoreCase));
+                partial ??= FindRow<World>(x => x!.IsPublic && x.DataCenter.Value!.Name == Player.CurrentDataCenter && x.Name.ToString().Contains(RemoveNonAlphaNumeric(word), StringComparison.OrdinalIgnoreCase));
 
-        return (partial ?? FindRow<World>(x => x!.IsPublic && RemoveConflicts(text).Contains(x.Name.RawString, StringComparison.OrdinalIgnoreCase)) ?? null, heuristicInstance != 0 ? (uint)heuristicInstance : (uint)mapInstance, (uint)relayType);
+        return (partial ?? FindRow<World>(x => x!.IsPublic && RemoveConflicts(text).Contains(x.Name.ToString(), StringComparison.OrdinalIgnoreCase)) ?? null, heuristicInstance != 0 ? (uint)heuristicInstance : (uint)mapInstance, (uint)relayType);
     }
 
     // I think this is the only case where an S rank has the name of a world contained within it

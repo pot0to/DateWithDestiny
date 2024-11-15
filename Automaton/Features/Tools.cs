@@ -3,7 +3,7 @@ using ECommons.ImGuiMethods;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 
 namespace Automaton.Features;
 
@@ -18,14 +18,14 @@ public class Tools : Tweak
         if (ImGui.Button("Get recipes you can craft"))
         {
             var _recipes = GetSheet<Recipe>()
-                .Where(r => r.ItemResult.Value?.RowId != 0 && r.UnkData5.Any(x => x.AmountIngredient > 0 && x.ItemIngredient != 0))
-                .Where(r => r.UnkData5.All(x => InventoryManager.Instance()->GetInventoryItemCount((uint)x.ItemIngredient) >= x.AmountIngredient))
+                .Where(r => r.ItemResult.Value.RowId != 0 && r.Ingredients().Any(x => x.Amount > 0 && x.Item.RowId != 0))
+                .Where(r => r.Ingredients().All(x => InventoryManager.Instance()->GetInventoryItemCount(x.Item.RowId) >= x.Amount))
                 .ToList();
             foreach (var recipe in _recipes)
             {
                 ImGuiX.Icon(recipe.ItemResult.Value!.Icon, 25);
                 ImGui.SameLine();
-                ImGuiEx.TextV($"[{recipe.RowId}] {recipe.ItemResult.Value!.Name.RawString}");
+                ImGuiEx.TextV($"[{recipe.RowId}] {recipe.ItemResult.Value!.Name}");
                 ImGui.SameLine();
                 if (ImGuiX.IconButton(FontAwesomeIcon.BookOpen, $"{recipe.RowId}"))
                     AgentRecipeNote.Instance()->OpenRecipeByRecipeId(recipe.RowId);
@@ -39,7 +39,7 @@ public class Tools : Tweak
             {
                 ImGuiX.Icon(recipe.ItemResult.Value!.Icon, 25);
                 ImGui.SameLine();
-                ImGuiEx.TextV($"[{recipe.RowId}] {recipe.ItemResult.Value!.Name.RawString}");
+                ImGuiEx.TextV($"[{recipe.RowId}] {recipe.ItemResult.Value!.Name}");
                 ImGui.SameLine();
                 if (ImGuiX.IconButton(FontAwesomeIcon.BookOpen, $"{recipe.RowId}"))
                     AgentRecipeNote.Instance()->OpenRecipeByRecipeId(recipe.RowId);

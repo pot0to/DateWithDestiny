@@ -15,7 +15,7 @@ public class AchievementTrackerConfiguration
     public bool AutoRemoveCompleted = false;
 }
 
-[Tweak]
+[Tweak(HasHooks = true)]
 public unsafe class AchievementTracker : Tweak<AchievementTrackerConfiguration>
 {
     public override string Name => "Achievement Tracker";

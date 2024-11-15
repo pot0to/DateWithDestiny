@@ -1,7 +1,8 @@
 ﻿using Dalamud.Interface;
+using ECommons.ExcelServices;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 
 namespace Automaton.Features;
 public class SimpleCurrencyAlertConfig
@@ -20,13 +21,13 @@ public class SimpleCurrencyAlert : Tweak<SimpleCurrencyAlertConfig>
         public uint ItemId;
         public int Threshold;
         public ushort Icon => GetRow<Item>(ItemId)?.Icon ?? 0;
-        public string Name => GetRow<Item>(ItemId)?.Name ?? string.Empty;
+        public string Name => GetRow<Item>(ItemId)?.Name.ToString() ?? string.Empty;
     }
 
     public override void DrawConfig()
     {
         base.DrawConfig();
-        if (ExcelSheetCombo<Item>("##Search", out var item, _ => string.Empty, x => x.Name, x => !x.Name.RawString.IsNullOrEmpty()))
+        if (ExcelCombos.ExcelSheetCombo<Item>("##Search", out var item, _ => string.Empty, x => x.Name.ToString(), x => !x.Name.ToString().IsNullOrEmpty()))
             Config.Alerts.Add(new Alert() { ItemId = item.RowId });
 
         foreach (var i in Config.Alerts.ToList())

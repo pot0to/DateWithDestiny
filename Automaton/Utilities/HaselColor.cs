@@ -1,5 +1,5 @@
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 
 namespace Automaton.Utilities;
 
@@ -58,13 +58,13 @@ public struct HaselColor
         => From(abgr.Reverse());
 
     public static HaselColor FromUiForeground(uint id)
-        => FromABGR(GetRow<UIColor>(id)!.UIForeground);
+        => FromABGR(GetRow<UIColor>(id)!.Value.UIForeground);
 
     public static HaselColor FromUiGlow(uint id)
-        => FromABGR(GetRow<UIColor>(id)!.UIGlow);
+        => FromABGR(GetRow<UIColor>(id)!.Value.UIGlow);
 
     public static HaselColor FromStain(uint id)
-        => From(GetRow<Stain>(id)!.Color.Reverse() >> 8).WithAlpha(1);
+        => From(GetRow<Stain>(id)!.Value.Color.Reverse() >> 8).WithAlpha(1);
 
     public static implicit operator Vector4(HaselColor col)
         => new(col.R, col.G, col.B, col.A);

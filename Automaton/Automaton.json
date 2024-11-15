@@ -5,7 +5,7 @@
     "Description": "",
     "InternalName": "Automaton",
     "ApplicableVersion": "any",
-    "DalamudApiLevel": 10,
+    "DalamudApiLevel": 11,
     "IconUrl": "https://i.imgur.com/AVSzkMB.png",
     "RepoUrl": "https://github.com/Jaksuhn/Automaton",
     "Tags": [

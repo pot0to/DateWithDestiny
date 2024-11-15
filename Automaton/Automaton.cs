@@ -32,8 +32,9 @@ public class Automaton : IDalamudPlugin
     internal LifestreamIPC Lifestream;
     internal DeliverooIPC Deliveroo;
     internal AutoRetainerIPC AutoRetainer;
-    internal Memory Memory;
+    internal Memory Memory = null!;
     internal bool UsingARPostProcess;
+    internal bool MemoryError;
 
     public Automaton(IDalamudPluginInterface pluginInterface)
     {
@@ -61,7 +62,17 @@ public class Automaton : IDalamudPlugin
         HaselWindow.SetWindowProperties();
         EzConfigGui.WindowSystem.AddWindow(new DebugWindow());
         NativeController = new NativeController(Svc.PluginInterface);
-        Memory = new();
+        try
+        {
+            MemoryError = false;
+            Memory = new();
+        }
+        catch (Exception ex)
+        {
+            MemoryError = true;
+            Svc.Log.Error(ex, "Failed to initialize Memory");
+        }
+
         AddonObserver = new();
         TaskManager = new();
         Navmesh = new();
@@ -77,7 +88,7 @@ public class Automaton : IDalamudPlugin
     private bool inpvp = false;
     private void EventWatcher(IFramework framework)
     {
-        if (Player.InPvP)
+        if (PlayerEx.InPvP)
         {
             if (!inpvp)
             {
@@ -111,7 +122,7 @@ public class Automaton : IDalamudPlugin
         Svc.Framework.Update -= EventWatcher;
         C.EnabledTweaks.CollectionChanged -= OnChange;
         AddonObserver.Dispose();
-        Memory.Dispose();
+        Memory?.Dispose();
         ECommonsMain.Dispose();
     }
 

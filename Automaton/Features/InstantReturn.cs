@@ -1,6 +1,6 @@
 ﻿namespace Automaton.Features;
 
-[Tweak(debug: true)]
+[Tweak(debug: true, HasHooks = true)]
 public unsafe class InstantReturn : Tweak
 {
     public override string Name => "Quick Return";

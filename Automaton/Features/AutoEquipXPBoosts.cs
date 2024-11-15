@@ -18,6 +18,6 @@ internal class AutoEquipXPBoosts : Tweak
 
         if (Player.SyncedLevel <= 90)
             if (Inventory.HasItem(41081))
-                Player.Equip(41081);
+                PlayerEx.Equip(41081);
     }
 }

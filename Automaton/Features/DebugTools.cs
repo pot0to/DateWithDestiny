@@ -68,7 +68,7 @@ public class DebugTools : Tweak<DebugToolsConfiguration>
     [CommandHandler("/noclip", "Enable NoClip", nameof(Config.EnableNoClip))]
     private void OnNoClip(string command, string arguments)
     {
-        if (Player.InPvP) return;
+        if (PlayerEx.InPvP) return;
         ncActive ^= true;
         Config.NoClipSpeed = float.TryParse(arguments, out var speed) ? speed : Config.NoClipSpeed;
     }
@@ -76,14 +76,14 @@ public class DebugTools : Tweak<DebugToolsConfiguration>
     [CommandHandler(["/move", "/speed"], "Modify your movement speed", nameof(Config.EnableMoveSpeed))]
     private void OnMoveSpeed(string command, string arguments)
     {
-        if (Player.InPvP) return;
-        Player.Speed = float.TryParse(arguments, out var speed) ? speed : 1.0f;
+        if (PlayerEx.InPvP) return;
+        PlayerEx.Speed = float.TryParse(arguments, out var speed) ? speed : 1.0f;
     }
 
     // prevent entering pvp with debug options enabled
     private void OnEnterPvP()
     {
-        Player.Speed = 1.0f;
+        PlayerEx.Speed = 1.0f;
         tpActive = false;
         ncActive = false;
     }
@@ -94,7 +94,7 @@ public class DebugTools : Tweak<DebugToolsConfiguration>
     private bool ncActive;
     private unsafe void OnUpdate(IFramework framework)
     {
-        if (!Player.Available || Player.Occupied) return;
+        if (!Player.Available || PlayerEx.Occupied) return;
         ShowMouseOverlay = false;
         if (Config.EnableTPClick && tpActive)
         {
@@ -107,7 +107,7 @@ public class DebugTools : Tweak<DebugToolsConfiguration>
                     if (IsKeyPressed(LimitedKeys.LeftMouseButton))
                     {
                         if (!IsLButtonPressed)
-                            Player.Position = res;
+                            PlayerEx.Position = res;
                         IsLButtonPressed = true;
                     }
                     else
@@ -121,36 +121,36 @@ public class DebugTools : Tweak<DebugToolsConfiguration>
             if (Svc.KeyState.GetRawValue(VirtualKey.SPACE) != 0 || IsKeyPressed(LimitedKeys.Space))
             {
                 Svc.KeyState.SetRawValue(VirtualKey.SPACE, 0);
-                Player.Position = (Player.Object.Position.X, Player.Object.Position.Y + Config.NoClipSpeed, Player.Object.Position.Z).ToVector3();
+                PlayerEx.Position = (Player.Object.Position.X, Player.Object.Position.Y + Config.NoClipSpeed, Player.Object.Position.Z).ToVector3();
             }
             if (Svc.KeyState.GetRawValue(VirtualKey.LSHIFT) != 0 || IsKeyPressed(LimitedKeys.LeftShiftKey))
             {
                 Svc.KeyState.SetRawValue(VirtualKey.LSHIFT, 0);
-                Player.Position = (Player.Object.Position.X, Player.Object.Position.Y - Config.NoClipSpeed, Player.Object.Position.Z).ToVector3();
+                PlayerEx.Position = (Player.Object.Position.X, Player.Object.Position.Y - Config.NoClipSpeed, Player.Object.Position.Z).ToVector3();
             }
             if (Svc.KeyState.GetRawValue(VirtualKey.W) != 0 || IsKeyPressed(LimitedKeys.W))
             {
-                var newPoint = Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI - Player.CameraEx->DirH, Player.Object.Position + new Vector3(0, 0, Config.NoClipSpeed));
+                var newPoint = Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI - PlayerEx.CameraEx->DirH, Player.Object.Position + new Vector3(0, 0, Config.NoClipSpeed));
                 Svc.KeyState.SetRawValue(VirtualKey.W, 0);
-                Player.Position = newPoint;
+                PlayerEx.Position = newPoint;
             }
             if (Svc.KeyState.GetRawValue(VirtualKey.S) != 0 || IsKeyPressed(LimitedKeys.S))
             {
-                var newPoint = Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI - Player.CameraEx->DirH, Player.Object.Position + new Vector3(0, 0, -Config.NoClipSpeed));
+                var newPoint = Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI - PlayerEx.CameraEx->DirH, Player.Object.Position + new Vector3(0, 0, -Config.NoClipSpeed));
                 Svc.KeyState.SetRawValue(VirtualKey.S, 0);
-                Player.Position = newPoint;
+                PlayerEx.Position = newPoint;
             }
             if (Svc.KeyState.GetRawValue(VirtualKey.A) != 0 || IsKeyPressed(LimitedKeys.A))
             {
-                var newPoint = Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI - Player.CameraEx->DirH, Player.Object.Position + new Vector3(Config.NoClipSpeed, 0, 0));
+                var newPoint = Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI - PlayerEx.CameraEx->DirH, Player.Object.Position + new Vector3(Config.NoClipSpeed, 0, 0));
                 Svc.KeyState.SetRawValue(VirtualKey.A, 0);
-                Player.Position = newPoint;
+                PlayerEx.Position = newPoint;
             }
             if (Svc.KeyState.GetRawValue(VirtualKey.D) != 0 || IsKeyPressed(LimitedKeys.D))
             {
-                var newPoint = Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI - Player.CameraEx->DirH, Player.Object.Position + new Vector3(-Config.NoClipSpeed, 0, 0));
+                var newPoint = Utils.RotatePoint(Player.Object.Position.X, Player.Object.Position.Z, MathF.PI - PlayerEx.CameraEx->DirH, Player.Object.Position + new Vector3(-Config.NoClipSpeed, 0, 0));
                 Svc.KeyState.SetRawValue(VirtualKey.D, 0);
-                Player.Position = newPoint;
+                PlayerEx.Position = newPoint;
             }
         }
     }
@@ -158,7 +158,7 @@ public class DebugTools : Tweak<DebugToolsConfiguration>
     [CommandHandler("/ada", "Call actions directly.", nameof(Config.EnableDirectActions))]
     private unsafe void OnDirectAction(string command, string arguments)
     {
-        if (Player.InPvP) return;
+        if (PlayerEx.InPvP) return;
         try
         {
             var args = arguments.Split(' ');
@@ -184,29 +184,29 @@ public class DebugTools : Tweak<DebugToolsConfiguration>
     [CommandHandler("/tpmarker", "Teleport to a given marker", nameof(Config.EnableTPMarker))]
     private unsafe void OnTeleportMarker(string command, string arguments)
     {
-        if (Player.InPvP) return;
+        if (PlayerEx.InPvP) return;
         if (int.TryParse(arguments, out var i))
         {
             var m = MarkingController.Instance()->FieldMarkers[i];
             Vector3? pos = m.Active ? new(m.X / 1000.0f, m.Y / 1000.0f, m.Z / 1000.0f) : null;
             if (pos != null)
-                Player.Position = (Vector3)pos;
+                PlayerEx.Position = (Vector3)pos;
         }
     }
 
     [CommandHandler("/tpoff", "Teleport from your current position, offset by arguments", nameof(Config.EnableTPOffset))]
     private unsafe void OnTeleportOffset(string command, string arguments)
     {
-        if (Player.InPvP) return;
+        if (PlayerEx.InPvP) return;
         if (arguments.TryParseVector3(out var v))
-            Player.Position += v;
+            PlayerEx.Position += v;
     }
 
     [CommandHandler("/tpabs", "Teleport to a given absolute position", nameof(Config.EnableTPAbsolute))]
     private unsafe void OnTeleportAbsolute(string command, string arguments)
     {
-        if (Player.InPvP) return;
+        if (PlayerEx.InPvP) return;
         if (arguments.TryParseVector3(out var v))
-            Player.Position = v;
+            PlayerEx.Position = v;
     }
 }

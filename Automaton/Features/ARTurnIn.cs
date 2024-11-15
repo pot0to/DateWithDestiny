@@ -50,7 +50,7 @@ internal class ARTurnIn : Tweak<ARTurnInConfiguration>
 
         ImGui.TextUnformatted($"LS:{P.Lifestream.IsBusy()} AR:{P.AutoRetainer.IsBusy()} D:{P.Deliveroo.IsTurnInRunning()} N:{P.Navmesh.IsRunning()}");
         if (Player.Available)
-            ImGui.TextUnformatted($"o:{Player.Occupied} m:{Player.IsMoving} c:{Player.IsCasting} l:{Player.AnimationLock}");
+            ImGui.TextUnformatted($"o:{PlayerEx.Occupied} m:{Player.IsMoving} c:{PlayerEx.IsCasting} l:{PlayerEx.AnimationLock}");
 
         if (ImGui.Button("FinishCharacterPostProcess"))
             AutoRetainer.FinishCharacterPostProcess();

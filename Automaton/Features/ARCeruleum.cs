@@ -9,7 +9,7 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 
 namespace Automaton.Features;
 
@@ -39,7 +39,7 @@ internal class ARCeruleum : Tweak
 
         ImGui.TextUnformatted($"AR:{P.AutoRetainer.IsBusy()} {P.AutoRetainer.GetSuppressed()}");
         if (Player.Available)
-            ImGui.TextUnformatted($"o:{Player.Occupied} m:{Player.IsMoving} mp:{Svc.Objects.FirstOrDefault(x => x.DataId == MammetVoyagerId) != null}");
+            ImGui.TextUnformatted($"o:{PlayerEx.Occupied} m:{Player.IsMoving} mp:{Svc.Objects.FirstOrDefault(x => x.DataId == MammetVoyagerId) != null}");
 
         if (ImGui.Button("request"))
             AutoRetainer.RequestCharacterPostprocess();
@@ -113,7 +113,7 @@ internal class ARCeruleum : Tweak
                 {
                     var tanks = am.Items[0];
                     if (tanks.QuantityInInventory != InventoryManager.Instance()->GetInventoryItemCount(tanks.ItemId)) return false; // last purchase hasn't gone through yet
-                    var desiredQty = (int)GetRow<Item>(tanks.ItemId)!.StackSize - tanks.QuantityInInventory;
+                    var desiredQty = (int)GetRow<Item>(tanks.ItemId)!.Value.StackSize - tanks.QuantityInInventory;
                     var maxCanBuyAtOnce = Math.Min(desiredQty, tanks.MaxPurchaseSize);
                     var maxAfford = (int)(am.CompanyCredits / tanks.Price);
                     var toBuy = Math.Min(maxCanBuyAtOnce, maxAfford);
@@ -139,7 +139,7 @@ internal class ARCeruleum : Tweak
 
     private bool GoToMammet()
     {
-        if (Player.IsNear(MammetPos, 0.5f)) { movement.Enabled = false; return true; }
+        if (Player.DistanceTo(MammetPos) < 0.5f) { movement.Enabled = false; return true; }
 
         movement.Enabled = true;
         movement.DesiredPosition = MammetPos;
@@ -175,7 +175,7 @@ internal class ARCeruleum : Tweak
         {
             foreach (var e in m.Entries)
             {
-                if (e.Text.EqualsIgnoreCase(GetRow<FccShop>(2752515)!.Name))
+                if (e.Text.EqualsIgnoreCase(GetRow<FccShop>(2752515)!.Value.Name.ToString()))
                 {
                     if (EzThrottler.Throttle($"{nameof(SelectCreditExchange)}"))
                     {
@@ -190,7 +190,7 @@ internal class ARCeruleum : Tweak
     }
 
     private unsafe bool WaitForShopOpen() => TryGetAddonByName<AtkUnitBase>("FreeCompanyCreditShop", out var addon) && IsAddonReady(addon);
-    private unsafe bool WaitForShopClose() => !TryGetAddonByName<AtkUnitBase>("FreeCompanyCreditShop", out _) && !Player.Occupied;
+    private unsafe bool WaitForShopClose() => !TryGetAddonByName<AtkUnitBase>("FreeCompanyCreditShop", out _) && !PlayerEx.Occupied;
 
     private TaskManagerConfiguration BuyConfig => new(timeLimitMS: 10 * 60 * 1000);
 }

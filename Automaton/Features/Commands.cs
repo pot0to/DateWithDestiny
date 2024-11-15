@@ -2,7 +2,7 @@
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.Interop;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using GC = ECommons.ExcelServices.GrandCompany;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
@@ -44,7 +44,7 @@ public partial class Commands : Tweak<CommandsConfiguration>
     [CommandHandler(["/tpf", "/tpflag"], "Teleport to the aetheryte nearest your flag", nameof(Config.EnableTPFlag))]
     internal void OnCommmandTeleportFlag(string command, string arguments)
     {
-        Coords.TeleportToAetheryte(Coords.GetNearestAetheryte(Player.MapFlag));
+        Coords.TeleportToAetheryte(Coords.GetNearestAetheryte(PlayerEx.MapFlag));
     }
     #endregion
 
@@ -55,13 +55,13 @@ public partial class Commands : Tweak<CommandsConfiguration>
         switch (Player.GrandCompany)
         {
             case GC.Maelstrom:
-                Svc.Commands.ProcessCommand($"/tp {GetRow<Aetheryte>(8)!.PlaceName.Value!.Name}");
+                Svc.Commands.ProcessCommand($"/tp {GetRow<Aetheryte>(8)!.Value.PlaceName.Value!.Name}");
                 break;
             case GC.TwinAdder:
-                Svc.Commands.ProcessCommand($"/tp {GetRow<Aetheryte>(2)!.PlaceName.Value!.Name}");
+                Svc.Commands.ProcessCommand($"/tp {GetRow<Aetheryte>(2)!.Value.PlaceName.Value!.Name}");
                 break;
             case GC.ImmortalFlames:
-                Svc.Commands.ProcessCommand($"/tp {GetRow<Aetheryte>(9)!.PlaceName.Value!.Name}");
+                Svc.Commands.ProcessCommand($"/tp {GetRow<Aetheryte>(9)!.Value.PlaceName.Value!.Name}");
                 break;
             default:
                 ModuleMessage("No Grand Company");
@@ -89,12 +89,12 @@ public partial class Commands : Tweak<CommandsConfiguration>
     internal unsafe void OnCommmandEquip(string command, string arguments)
     {
         if (!uint.TryParse(arguments, out var itemId)) return;
-        Player.Equip(itemId);
+        PlayerEx.Equip(itemId);
     }
     #endregion
 
     #region Desynth
-    [CommandHandler("/desynth", "Desynth an item by ID", nameof(Config.EnableDesynth))]
+    [CommandHandler("/desynth", "Desynth an item by ID", nameof(Config.EnableDesynth), true)]
     internal unsafe void OnCommmandDesynth(string command, string arguments)
     {
         if (!uint.TryParse(arguments, out var itemId)) return;
@@ -106,7 +106,7 @@ public partial class Commands : Tweak<CommandsConfiguration>
         }
 
         var item = InventoryManager.Instance()->GetInventoryContainer(item_loc.Value.inv)->GetInventorySlot(item_loc.Value.slot);
-        if (GetRow<Item>(item->ItemId)!.Desynth == 0)
+        if (GetRow<Item>(item->ItemId)!.Value.Desynth == 0)
         {
             DuoLog.Error($"Item {GetRow<Item>(item->ItemId)?.Name} (ID: {item->ItemId}) is not desynthable");
             return;

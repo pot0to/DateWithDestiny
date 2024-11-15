@@ -1,5 +1,5 @@
 using FFXIVClientStructs.FFXIV.Client.Game;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 
 namespace Automaton.Features;
 
@@ -37,7 +37,7 @@ public class AutoMerge : Tweak
 
     private unsafe void OnSetup(string addonName)
     {
-        if (Player.Occupied || !inventoryAddonNames.Contains(addonName)) return;
+        if (PlayerEx.Occupied || !inventoryAddonNames.Contains(addonName)) return;
 
         inventorySlots.Clear();
         var inv = InventoryManager.Instance();
