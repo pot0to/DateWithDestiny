@@ -366,7 +366,7 @@ internal unsafe class Memory
     #region Camera Object Culling
     internal delegate byte ShouldDrawDelegate(CameraBase* thisPtr, GameObject* gameObject, Vector3* sceneCameraPos, Vector3* lookAtVector);
     [EzHook("E8 ?? ?? ?? ?? 84 C0 75 18 48 8D 0D ?? ?? ?? ?? B3 01", false)]
-    internal readonly EzHook<ShouldDrawDelegate> ShouldDrawHook;
+    internal readonly EzHook<ShouldDrawDelegate> ShouldDrawHook = null!;
 
     private byte ShouldDrawDetour(CameraBase* thisPtr, GameObject* gameObject, Vector3* sceneCameraPos, Vector3* lookAtVector) => 1;
     #endregion
