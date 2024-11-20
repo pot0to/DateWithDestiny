@@ -12,7 +12,7 @@ global using System;
 global using System.Collections.Generic;
 global using System.Linq;
 global using System.Numerics;
-global using static Automaton.Automaton;
+global using static Automaton.Plugin;
 global using static Automaton.Utilities.Extensions;
 global using ECommons.GameHelpers;
 global using static ECommons.GenericHelpers;

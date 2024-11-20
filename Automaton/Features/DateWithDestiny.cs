@@ -196,7 +196,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     }
 
     [CommandHandler("/vfate", "Opens the FATE tracker")]
-    private void OnCommand(string command, string arguments) => Utils.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
+    private void OnCommand(string command, string arguments) => EzConfigGui.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
 
     private unsafe void OnUpdate(IFramework framework)
     {

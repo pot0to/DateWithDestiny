@@ -1,17 +1,14 @@
-﻿using Dalamud.Game.Network.Structures;
-using Dalamud.Hooking;
-using ECommons.Automation;
+﻿using ECommons.Automation;
 using ECommons.EzHookManager;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
-using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
-using FFXIVClientStructs.FFXIV.Client.UI.Info;
 using FFXIVClientStructs.FFXIV.Common.Lua;
 using System.Runtime.InteropServices;
+using static Automaton.Utilities.Utils;
 
 namespace Automaton.Utilities;
 #pragma warning disable CS0649
@@ -36,24 +33,13 @@ internal unsafe class Memory
     {
         EzSignatureHelper.Initialize(this);
         RidePillion = Marshal.GetDelegateForFunctionPointer<RidePillionDelegate>(Svc.SigScanner.ScanText("48 85 C9 0F 84 ?? ?? ?? ?? 48 89 6C 24 ?? 56 48 83 EC"));
-        SalvageItem = Marshal.GetDelegateForFunctionPointer<SalvageItemDelegate>(Svc.SigScanner.ScanText("E8 ?? ?? ?? ?? EB 46 48 8B 03")); // thanks veyn
+        SalvageItem = Marshal.GetDelegateForFunctionPointer<SalvageItemDelegate>(Svc.SigScanner.ScanText("E8 ?? ?? ?? ?? EB 5A 48 8B 07")); // thanks veyn
         AbandonDuty = Marshal.GetDelegateForFunctionPointer<AbandonDutyDelegate>(Svc.SigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B 43 28 41 B2 01"));
         WorldTravel = Marshal.GetDelegateForFunctionPointer<AgentWorldTravelReceiveEventDelegate>(Svc.SigScanner.ScanText("40 55 53 56 57 41 54 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? B8"));
         WorldTravelSetupInfo = Marshal.GetDelegateForFunctionPointer<WorldTravelSetupInfoDelegate>(Svc.SigScanner.ScanText("48 8B CB E8 ?? ?? ?? ?? 48 8D 8B ?? ?? ?? ?? E8 ?? ?? ?? ?? 4C 8B 05 ?? ?? ?? ??"));
-
-        ProcessRequestResultHook = Svc.Hook.HookFromAddress<InfoProxyItemSearch.Delegates.ProcessRequestResult>(InfoProxyItemSearch.MemberFunctionPointers.ProcessRequestResult, ProcessRequestResultDetour);
-        EndRequestHook = Svc.Hook.HookFromAddress<InfoProxyItemSearch.Delegates.EndRequest>(InfoProxyItemSearch.StaticVirtualTablePointer->EndRequest, EndRequestDetour);
-        ProcessRequestResultHook?.Enable();
-        EndRequestHook?.Enable();
-        Svc.MarketBoard.OfferingsReceived += OnOfferingsReceived;
     }
 
-    public void Dispose()
-    {
-        Svc.MarketBoard.OfferingsReceived -= OnOfferingsReceived;
-        ProcessRequestResultHook?.Dispose();
-        EndRequestHook?.Dispose();
-    }
+    public void Dispose() { }
 
     #region PacketDispatcher
     const string PacketDispatcher_OnReceivePacketHookSig = "40 53 56 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 ?? 8B F2";
@@ -193,36 +179,6 @@ internal unsafe class Memory
     }
     #endregion
 
-    #region Marketboard
-    private readonly Hook<InfoProxyItemSearch.Delegates.ProcessRequestResult>? ProcessRequestResultHook;
-    private readonly Hook<InfoProxyItemSearch.Delegates.EndRequest>? EndRequestHook;
-    private readonly List<IMarketBoardItemListing> Listings = [];
-
-    public delegate void ListingsStartDelegate();
-    public delegate void ListingsPageDelegate(IReadOnlyList<IMarketBoardItemListing> listings);
-    public delegate void ListingsEndDelegate(IReadOnlyList<IMarketBoardItemListing> listings);
-
-    public nint ProcessRequestResultDetour(InfoProxyItemSearch* infoProxy, nint a2, nint a3, nint a4, int a5, byte a6, int a7)
-    {
-        Listings.Clear();
-        Events.OnListingsStart();
-        return ProcessRequestResultHook!.Original(infoProxy, a2, a3, a4, a5, a6, a7);
-    }
-
-    public void EndRequestDetour(InfoProxyItemSearch* infoProxy)
-    {
-        EndRequestHook!.Original(infoProxy);
-        Events.OnListingsEnd(Listings);
-        Listings.Clear();
-    }
-
-    private void OnOfferingsReceived(IMarketBoardCurrentOfferings currentOfferings)
-    {
-        Listings.AddRange(currentOfferings.ItemListings);
-        Events.OnListingsPage(currentOfferings.ItemListings);
-    }
-    #endregion
-
     #region Snipe Quest Sequences
     [EzHook("48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 50 48 8B F1 48 8D 4C 24 ?? E8 ?? ?? ?? ?? 48 8B 4C 24 ??", false)]
     internal EzHook<EnqueueSnipeTaskDelegate> SnipeHook = null!;
@@ -277,8 +233,12 @@ internal unsafe class Memory
     internal readonly EzHook<AgentReturnReceiveEventDelegate> ReturnHook = null!;
 
     internal delegate nint ExecuteCommandDelegate(int command, int param1, int param2, int param3, int param4);
-    [EzHook("E8 ?? ?? ?? ?? 8D 43 0A", false)]
+    [EzHook("E8 ?? ?? ?? ?? 8D 46 0A", false)]
     internal readonly EzHook<ExecuteCommandDelegate> ExecuteCommandHook = null!;
+
+    internal delegate nint ExecuteCommandComplexLocationDelegate(int command, Vector3 position, int param1, int param2, int param3, int param4);
+    [EzHook("E8 ?? ?? ?? ?? EB 1E 48 8B 53 08", false)]
+    internal readonly EzHook<ExecuteCommandComplexLocationDelegate> ExecuteCommandComplexLocationHook = null!;
 
     private byte ReturnDetour(AgentInterface* agent)
     {
@@ -297,9 +257,15 @@ internal unsafe class Memory
         return 1;
     }
 
-    private nint ExecuteCommand(int command, int param1 = 0, int param2 = 0, int param3 = 0, int param4 = 0)
+    internal nint ExecuteCommand(int command, int param1 = 0, int param2 = 0, int param3 = 0, int param4 = 0)
     {
         var result = ExecuteCommandHook.Original(command, param1, param2, param3, param4);
+        return result;
+    }
+
+    internal nint ExecuteCommand(ExecuteCommandFlag command, int param1 = 0, int param2 = 0, int param3 = 0, int param4 = 0)
+    {
+        var result = ExecuteCommandHook.Original((int)command, param1, param2, param3, param4);
         return result;
     }
 
@@ -307,6 +273,24 @@ internal unsafe class Memory
     {
         Svc.Log.Debug($"[{nameof(ExecuteCommandDetour)}]: cmd:({command}) | p1:{param1} | p2:{param2} | p3:{param3} | p4:{param4}");
         return ExecuteCommandHook.Original(command, param1, param2, param3, param4);
+    }
+
+    internal nint ExecuteCommandComplexLocation(int command, Vector3 position, int param1 = 0, int param2 = 0, int param3 = 0, int param4 = 0)
+    {
+        var result = ExecuteCommandComplexLocationHook.Original(command, position, param1, param2, param3, param4);
+        return result;
+    }
+
+    internal nint ExecuteCommandComplexLocation(ExecuteCommandComplexFlag command, Vector3 position, int param1 = 0, int param2 = 0, int param3 = 0, int param4 = 0)
+    {
+        var result = ExecuteCommandComplexLocationHook.Original((int)command, position, param1, param2, param3, param4);
+        return result;
+    }
+
+    private nint ExecuteCommandComplexLocationDetour(int command, Vector3 position, int param1, int param2, int param3, int param4)
+    {
+        Svc.Log.Debug($"[{nameof(ExecuteCommandComplexLocationDetour)}]: cmd:({command}) | pos:{position} | p1:{param1} | p2:{param2} | p3:{param3} | p4:{param4}");
+        return ExecuteCommandComplexLocationHook.Original(command, position, param1, param2, param3, param4);
     }
     #endregion
 
@@ -316,51 +300,6 @@ internal unsafe class Memory
     internal readonly EzHook<GetGrandCompanyRankDelegate> GCRankHook = null!;
 
     private byte GCRankDetour(nint a1) => 17;
-    #endregion
-
-    #region Interact Related
-    internal delegate bool CameraObjectBlockedDelegate(nint a1, nint a2, nint a3);
-    [EzHook("E8 ?? ?? ?? ?? 84 C0 75 ?? B9 ?? ?? ?? ?? E8 ?? ?? ?? ?? EB ?? 40 B7", false)]
-    internal readonly EzHook<CameraObjectBlockedDelegate>? CameraObjectBlockedHook = null!;
-
-    internal unsafe delegate bool IsObjectInViewRangeDelegate(TargetSystem* system, CSGameObject* gameObject);
-    [EzHook("E8 ?? ?? ?? ?? 84 C0 75 ?? 48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B C8 48 8B 10 FF 52 ?? 48 8B C8 BA ?? ?? ?? ?? E8 ?? ?? ?? ?? E9", false)]
-    internal readonly EzHook<IsObjectInViewRangeDelegate>? IsObjectInViewRangeHook = null!;
-
-    internal delegate bool InteractCheck0Delegate(nint a1, nint a2, nint a3, nint a4, bool a5);
-    [EzHook("48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC ?? 49 8B 00 49 8B C8", false)]
-    internal readonly EzHook<InteractCheck0Delegate>? InteractCheckHook = null!;
-
-    internal delegate bool IsPlayerJumpingDelegate(nint a1);
-
-    [EzHook("E8 ?? ?? ?? ?? EB D0 E8 ?? ?? ?? ??", autoEnable: false, detourName: nameof(IsPlayerJumpingDetour))]
-    internal readonly EzHook<IsPlayerJumpingDelegate>? IsPlayerJumping0Hook = null!;
-
-    //[EzHook("E8 ?? ?? ?? ?? 84 C0 0F 85 ?? ?? ?? ?? 48 8D 8D ?? ?? ?? ?? 48 89 9C 24", autoEnable: false, detourName: nameof(IsPlayerJumpingDetour))]
-    //internal readonly EzHook<IsPlayerOnJumpingDelegate>? IsPlayerJumping1Hook = null!;
-
-    //[EzHook("E8 ?? ?? ?? ?? 84 C0 74 ?? 48 85 DB 74 ?? 48 8B 03 48 8B CB FF 50", autoEnable: false, detourName: nameof(IsPlayerJumpingDetour))]
-    //internal readonly Hook<IsPlayerOnJumpingDelegate>? IsPlayerJumping2Hook = null!;
-
-    internal delegate bool CheckTargetPositionDelegate(nint a1, nint a2, nint a3, byte a4, byte a5);
-    [EzHook("40 53 57 41 56 48 83 EC ?? 48 8B 02", false)]
-    internal readonly EzHook<CheckTargetPositionDelegate>? CheckTargetPositionHook = null!;
-
-    internal unsafe delegate bool EventCanceledDelegate(EventFramework* framework);
-    [EzHook("E8 ?? ?? ?? ?? 84 C0 74 ?? 48 8B CB E8 ?? ?? ?? ?? 48 3B C7", false)]
-    internal readonly EzHook<EventCanceledDelegate>? EventCancelledHook = null!;
-
-    internal unsafe delegate float CheckTargetDistanceDelegate(CSGameObject* localPlayer, CSGameObject* target);
-    [EzHook("E8 ?? ?? ?? ?? 0F 2F 05 ?? ?? ?? ?? 76 ?? 48 8B 03 48 8B CB FF 50 ?? 48 8B C8 BA ?? ?? ?? ?? E8 ?? ?? ?? ?? EB", false)]
-    internal readonly EzHook<CheckTargetDistanceDelegate>? CheckTargetDistanceHook = null!;
-
-    private bool CameraObjectBlockedDetour(nint a1, nint a2, nint a3) => true;
-    private unsafe bool IsObjectInViewRangeDetour(TargetSystem* system, CSGameObject* gameObject) => true;
-    private bool InteractCheckDetour(nint a1, nint a2, nint a3, nint a4, bool a5) => true;
-    private bool IsPlayerJumpingDetour(nint a1) => false;
-    private bool CheckTargetPositionDetour(nint a1, nint a2, nint a3, byte a4, byte a5) => true;
-    private unsafe bool EventCancelledDetour(EventFramework* framework) => false;
-    private unsafe float CheckTargetDistanceDetour(CSGameObject* localPlayer, CSGameObject* target) => 0f;
     #endregion
 
     #region Camera Object Culling

@@ -57,11 +57,11 @@ public class HuntRelayHelperConfiguration
     ];
 }
 
-[Tweak]
+[Tweak(outdated: true)]
 public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
 {
     public override string Name => "Hunt Relay Helper";
-    public override string Description => "Appends a clickable icon to messages with a MapLinkPayload to relay them to other channels.";
+    public override string Description => "Appends a clickable icon to messages with a MapLinkPayload to relay them to other channels. THIS IS CURRENTLY BROKEN, AWAITING A FIX.";
 
     private DalamudLinkPayload RelayLinkPayload = null!;
     private readonly string InstanceHeuristics = @"\b(?:instance\s*(?<instanceNumber>\d+)|i(?<iNumber>\d+))\b";
@@ -211,10 +211,11 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                                 .FirstOrDefault(Player.Object.CurrentWorld.Value);
                             break;
                     }
+                    //Svc.Log.Debug($"Failed to detect world initially, relying on fallback. World is now {world.Value.Name}");
                 }
-                if (world != null)
+                if (world.HasValue)
                 {
-                    Svc.Log.Verbose($"Detected world {world.Value.Name} and instance {instance} in {nameof(MapLinkPayload)} message: {message}");
+                    //Svc.Log.Verbose($"Detected world {world.Value.Name} and instance {instance} in {nameof(MapLinkPayload)} message: {message}");
                     message.Payloads.AddRange([RelayLinkPayload, new IconPayload(BitmapFontIcon.NotoriousMonster), new RelayPayload(mlp, world.Value.RowId, instance, relayType, (uint)type).ToRawPayload(), RawPayload.LinkTerminator]);
                 }
                 else
@@ -223,7 +224,7 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         }
         catch (Exception ex)
         {
-            Svc.Log.Error(ex.Message, ex);
+            Svc.Log.Error($"{nameof(HuntRelayHelper)}.{nameof(OnChatMessage)} {ex}", ex);
         }
     }
 
@@ -343,9 +344,9 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         World? partial = null;
         if (Config.AllowPartialWorldMatches)
             foreach (var word in RemoveConflicts(text).Split(' ').Where(t => !ECommons.GenericHelpers.IsNullOrEmpty(t) && t.Length > 2))
-                partial ??= FindRow<World>(x => x!.IsPublic && x.DataCenter.Value!.Name == Player.CurrentDataCenter && x.Name.ToString().Contains(RemoveNonAlphaNumeric(word), StringComparison.OrdinalIgnoreCase));
+                partial ??= FindRow<World>(x => x.IsPublic && x.DataCenter.Value.Name == Player.CurrentDataCenter && x.Name.ExtractText().Contains(RemoveNonAlphaNumeric(word), StringComparison.OrdinalIgnoreCase));
 
-        return (partial ?? FindRow<World>(x => x!.IsPublic && RemoveConflicts(text).Contains(x.Name.ToString(), StringComparison.OrdinalIgnoreCase)) ?? null, heuristicInstance != 0 ? (uint)heuristicInstance : (uint)mapInstance, (uint)relayType);
+        return (partial ?? FindRow<World>(x => x.IsPublic && RemoveConflicts(text).Contains(x.Name.ExtractText(), StringComparison.OrdinalIgnoreCase)) ?? null, heuristicInstance != 0 ? (uint)heuristicInstance : (uint)mapInstance, (uint)relayType);
     }
 
     // I think this is the only case where an S rank has the name of a world contained within it

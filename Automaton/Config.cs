@@ -39,7 +39,7 @@ public class TweakConfigs
 
 public class YamlFactory : ISerializationFactory
 {
-    public string DefaultConfigFileName => $"ez{Name}.yaml";
+    public string DefaultConfigFileName => $"ezAutomaton.yaml";
 
     public T Deserialize<T>(string inputData)
     {

@@ -8,7 +8,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 
 namespace Automaton.UI;
-internal class FateTrackerUI(DateWithDestiny tweak) : Window($"Fate Tracker##{Name}")
+internal class FateTrackerUI(DateWithDestiny tweak) : Window($"Fate Tracker##{nameof(FateTrackerUI)}")
 {
     private readonly DateWithDestiny _tweak = tweak;
     internal uint SelectedTerritory = 0;

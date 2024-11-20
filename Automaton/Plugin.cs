@@ -7,26 +7,24 @@ using ECommons;
 using ECommons.Automation.LegacyTaskManager;
 using ECommons.Configuration;
 using ECommons.SimpleGui;
-using FFXIVClientStructs.FFXIV.Client.Game;
-using KamiToolKit;
 using System.Collections.Specialized;
 using System.Reflection;
 
 namespace Automaton;
 
-public class Automaton : IDalamudPlugin
+public class Plugin : IDalamudPlugin
 {
-    public static string Name => "Automaton";
-    private const string Command = "/automaton";
+    public static string Name => "CBT";
+    private const string Command = "/cbt";
+    private const string LegacyCommand = "/automaton";
 
-    internal static Automaton P = null!;
+    internal static Plugin P = null!;
     private readonly Config Config;
     public static Config C => P.Config;
 
     public static readonly HashSet<Tweak> Tweaks = [];
     internal TaskManager TaskManager;
     internal NavmeshIPC Navmesh;
-    internal NativeController NativeController;
     internal AddonObserver AddonObserver;
     internal AutoRetainerApi AutoRetainerAPI;
     internal LifestreamIPC Lifestream;
@@ -36,7 +34,7 @@ public class Automaton : IDalamudPlugin
     internal bool UsingARPostProcess;
     internal bool MemoryError;
 
-    public Automaton(IDalamudPluginInterface pluginInterface)
+    public Plugin(IDalamudPluginInterface pluginInterface)
     {
         P = this;
         ECommonsMain.Init(pluginInterface, P, ECommons.Module.DalamudReflector, ECommons.Module.ObjectFunctions);
@@ -58,10 +56,10 @@ public class Automaton : IDalamudPlugin
         Svc.Framework.Update += EventWatcher;
 
         EzCmd.Add(Command, OnCommand, $"Opens the {Name} menu");
+        EzCmd.Add(LegacyCommand, OnCommand);
         EzConfigGui.Init(new HaselWindow().Draw);
         HaselWindow.SetWindowProperties();
         EzConfigGui.WindowSystem.AddWindow(new DebugWindow());
-        NativeController = new NativeController(Svc.PluginInterface);
         try
         {
             MemoryError = false;

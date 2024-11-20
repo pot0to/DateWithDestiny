@@ -8,7 +8,7 @@ using ImGuiNET;
 using SheetAchievement = Lumina.Excel.Sheets.Achievement;
 
 namespace Automaton.UI;
-public unsafe class AchievementTrackerUI(AchievementTracker tweak) : Window($"Achievement Tracker##{Name}")
+public unsafe class AchievementTrackerUI(AchievementTracker tweak) : Window($"Achievement Tracker##{nameof(AchievementTrackerUI)}")
 {
     private readonly AchievementTracker _tweak = tweak;
     private SheetAchievement? selectedAchievement;

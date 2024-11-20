@@ -62,11 +62,11 @@ public unsafe class AchievementTracker : Tweak<AchievementTrackerConfiguration>
     {
         P.Memory.ReceiveAchievementProgressHook.Disable();
         Events.AchievementProgressUpdate -= OnAchievementProgressUpdate;
-        Utils.RemoveWindow<AchievementTrackerUI>();
+        EzConfigGui.RemoveWindow<AchievementTrackerUI>();
     }
 
     [CommandHandler("/atracker", "Toggle the Achievement Tracker window")]
-    private void OnCommand(string command, string arguments) => Utils.GetWindow<AchievementTrackerUI>()!.IsOpen ^= true;
+    private void OnCommand(string command, string arguments) => EzConfigGui.GetWindow<AchievementTrackerUI>()!.IsOpen ^= true;
 
     private void OnAchievementProgressUpdate(uint id, uint current, uint max)
     {
