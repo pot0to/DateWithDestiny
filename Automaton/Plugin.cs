@@ -24,14 +24,17 @@ public class Plugin : IDalamudPlugin
 
     public static readonly HashSet<Tweak> Tweaks = [];
     internal TaskManager TaskManager;
-    internal NavmeshIPC Navmesh;
     internal AddonObserver AddonObserver;
+
+    internal Provider Provider;
+    internal NavmeshIPC Navmesh;
     internal AutoRetainerApi AutoRetainerAPI;
     internal LifestreamIPC Lifestream;
     internal DeliverooIPC Deliveroo;
     internal AutoRetainerIPC AutoRetainer;
-    internal Memory Memory = null!;
     internal bool UsingARPostProcess;
+
+    internal Memory Memory = null!;
     internal bool MemoryError;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
@@ -73,6 +76,7 @@ public class Plugin : IDalamudPlugin
 
         AddonObserver = new();
         TaskManager = new();
+        Provider = new();
         Navmesh = new();
         AutoRetainerAPI = new();
         Lifestream = new();
