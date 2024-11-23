@@ -35,7 +35,6 @@ public class Plugin : IDalamudPlugin
     internal bool UsingARPostProcess;
 
     internal Memory Memory = null!;
-    internal bool MemoryError;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
@@ -65,12 +64,10 @@ public class Plugin : IDalamudPlugin
         EzConfigGui.WindowSystem.AddWindow(new DebugWindow());
         try
         {
-            MemoryError = false;
             Memory = new();
         }
         catch (Exception ex)
         {
-            MemoryError = true;
             Svc.Log.Error(ex, "Failed to initialize Memory");
         }
 
