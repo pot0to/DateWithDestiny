@@ -1,6 +1,5 @@
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
-using FFXIVClientStructs.FFXIV.Client.Game;
 using ImGuiNET;
 
 namespace Automaton.UI;
@@ -20,8 +19,8 @@ internal class DebugWindow : Window
 
     public override bool DrawConditions() => Player.Available;
 
-    private Utils.ExecuteCommandFlag flag;
-    private Utils.ExecuteCommandComplexFlag flag2;
+    private Enums.ExecuteCommandFlag flag;
+    private Enums.ExecuteCommandComplexFlag flag2;
     private int ec1 = 0;
     private int ec2 = 0;
     private int ec3 = 0;
@@ -30,6 +29,7 @@ internal class DebugWindow : Window
     private int ecc2 = 0;
     private int ecc3 = 0;
     private int ecc4 = 0;
+    private readonly Memory.ExecuteCommands executeCommands = new();
     public override unsafe void Draw()
     {
         ImGuiX.Enum("ExecuteCommand", ref flag);
@@ -38,7 +38,7 @@ internal class DebugWindow : Window
         ImGui.InputInt("p3", ref ec3);
         ImGui.InputInt("p4", ref ec4);
         if (ImGui.Button("exeucte"))
-            P.Memory.ExecuteCommand(flag, ec1, ec2, ec3, ec4);
+            executeCommands.ExecuteCommand(flag, ec1, ec2, ec3, ec4);
 
         using var id = ImRaii.PushId("complex");
         ImGuiX.Enum("ExecuteCommandComplex", ref flag2);
@@ -47,6 +47,6 @@ internal class DebugWindow : Window
         ImGui.InputInt("p3", ref ecc3);
         ImGui.InputInt("p4", ref ecc4);
         if (ImGui.Button("exeucte"))
-            P.Memory.ExecuteCommandComplexLocation(flag2, Player.Position, ecc1, ecc2, ecc3, ecc4);
+            executeCommands.ExecuteCommandComplexLocation(flag2, Player.Position, ecc1, ecc2, ecc3, ecc4);
     }
 }

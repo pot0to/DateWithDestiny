@@ -6,6 +6,7 @@ internal class AutoSnipeQuests : Tweak
     public override string Name => "Sniper no sniping";
     public override string Description => "Automatically completes snipe quests.";
 
-    public override void Enable() => P.Memory.SnipeHook.Enable();
-    public override void Disable() => P.Memory.SnipeHook.Disable();
+    private readonly Memory.SnipeQuestSequence SnipeQuestSequence = new();
+    public override void Enable() => SnipeQuestSequence.SnipeHook.Enable();
+    public override void Disable() => SnipeQuestSequence.SnipeHook.Disable();
 }
