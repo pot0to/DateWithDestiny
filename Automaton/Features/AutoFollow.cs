@@ -155,8 +155,6 @@ public unsafe class AutoFollow : Tweak<AutoFollowConfiguration>
 
     private static bool CanMount() => !Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.Mounting] && !Svc.Condition[ConditionFlag.InCombat] && !Svc.Condition[ConditionFlag.Casting];
 
-    private static bool TerritorySupportsMounting() => GetRow<TerritoryType>(Player.Territory)?.Unknown4 != 0;
-
     private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
     {
         if (type != XivChatType.Party) return;

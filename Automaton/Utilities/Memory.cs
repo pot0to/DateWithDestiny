@@ -28,6 +28,7 @@ internal unsafe class Memory
         internal const string MoveController = "E8 ?? ?? ?? ?? 48 85 C0 74 AE 83 FD 05";
         internal const string PacketDispatcher_OnReceivePacketHookSig = "40 53 56 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 44 24 ?? 8B F2"; // hyperborea
         internal const string PacketDispatcher_OnSendPacketHook = "48 89 5C 24 ?? 48 89 74 24 ?? 4C 89 64 24 ?? 55 41 56 41 57 48 8B EC 48 83 EC 70"; // hyperborea
+        internal const string PlayerController = "48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 3C 01 75 1E 48 8D 0D"; // bossmod
         internal const string PlayerGroundSpeed = "F3 0F 59 05 ?? ?? ?? ?? F3 0F 59 05 ?? ?? ?? ?? F3 0F 58 05 ?? ?? ?? ?? 44 0F 28 C8";
         internal const string ReceiveAchievementProgress = "C7 81 ?? ?? ?? ?? ?? ?? ?? ?? 89 91 ?? ?? ?? ?? 44 89 81"; // cs
         internal const string RidePillion = "48 85 C9 0F 84 ?? ?? ?? ?? 48 89 6C 24 ?? 56 48 83 EC";
@@ -248,15 +249,13 @@ internal unsafe class Memory
         [EzHook(Signatures.FlightProhibited, false)]
         internal readonly EzHook<IsFlightProhibited> IsFlightProhibitedHook = null!;
 
-        private unsafe nint IsFlightProhibitedDetour(nint a1)
+        internal unsafe nint IsFlightProhibitedDetour(nint a1)
         {
             try
             {
-                if (GetRow<Lumina.Excel.Sheets.TerritoryType>(Player.Territory)?.Unknown4 == 0) // don't detour in zones where flight is impossible normally
-                    return IsFlightProhibitedHook.Original(a1);
-                else if (PlayerState.Instance()->IsAetherCurrentZoneComplete(Svc.ClientState.TerritoryType)) // don't detour in zones where you can already fly
-                    return IsFlightProhibitedHook.Original(a1);
-                else if (!Svc.Condition[ConditionFlag.Mounted]) // don't detour if you aren't mounted
+                if (!PlayerEx.InFlightAllowedTerritory // don't detour in zones where flight is impossible normally
+                    || PlayerEx.AllowedToFly // don't detour in zones where you can already fly
+                    || !Svc.Condition[ConditionFlag.Mounted]) // don't detour if you aren't mounted
                     return IsFlightProhibitedHook.Original(a1);
                 else
                     return 0;
