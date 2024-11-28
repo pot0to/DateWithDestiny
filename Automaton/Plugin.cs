@@ -7,35 +7,38 @@ using ECommons;
 using ECommons.Automation.LegacyTaskManager;
 using ECommons.Configuration;
 using ECommons.SimpleGui;
-using FFXIVClientStructs.FFXIV.Client.Game;
-using KamiToolKit;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Reflection;
 
 namespace Automaton;
 
-public class Automaton : IDalamudPlugin
+public class Plugin : IDalamudPlugin
 {
-    public static string Name => "Automaton";
-    private const string Command = "/automaton";
+    public static string Name => "CBT";
+    public static string VersionString => $"v{P.GetType().Assembly.GetName().Version?.Major}.{P.GetType().Assembly.GetName().Version?.Minor}";
+    private const string Command = "/cbt";
+    private const string LegacyCommand = "/automaton";
 
-    internal static Automaton P = null!;
+    internal static Plugin P = null!;
     private readonly Config Config;
     public static Config C => P.Config;
 
     public static readonly HashSet<Tweak> Tweaks = [];
     internal TaskManager TaskManager;
-    internal NavmeshIPC Navmesh;
-    internal NativeController NativeController;
     internal AddonObserver AddonObserver;
+
+    internal Provider Provider;
+    internal NavmeshIPC Navmesh;
     internal AutoRetainerApi AutoRetainerAPI;
     internal LifestreamIPC Lifestream;
     internal DeliverooIPC Deliveroo;
     internal AutoRetainerIPC AutoRetainer;
-    internal Memory Memory;
     internal bool UsingARPostProcess;
 
-    public Automaton(IDalamudPluginInterface pluginInterface)
+    internal Memory Memory = null!;
+
+    public Plugin(IDalamudPluginInterface pluginInterface)
     {
         P = this;
         ECommonsMain.Init(pluginInterface, P, ECommons.Module.DalamudReflector, ECommons.Module.ObjectFunctions);
@@ -57,13 +60,21 @@ public class Automaton : IDalamudPlugin
         Svc.Framework.Update += EventWatcher;
 
         EzCmd.Add(Command, OnCommand, $"Opens the {Name} menu");
-        EzConfigGui.Init(new HaselWindow().Draw);
-        HaselWindow.SetWindowProperties();
+        EzCmd.Add(LegacyCommand, OnCommand);
+        EzConfigGui.Init(new HaselWindow().Draw, nameOverride: $"{Name} {VersionString}");
         EzConfigGui.WindowSystem.AddWindow(new DebugWindow());
-        NativeController = new NativeController(Svc.PluginInterface);
-        Memory = new();
+        try
+        {
+            Memory = new();
+        }
+        catch (Exception ex)
+        {
+            Svc.Log.Error(ex, "Failed to initialize Memory");
+        }
+
         AddonObserver = new();
         TaskManager = new();
+        Provider = new();
         Navmesh = new();
         AutoRetainerAPI = new();
         Lifestream = new();
@@ -77,7 +88,7 @@ public class Automaton : IDalamudPlugin
     private bool inpvp = false;
     private void EventWatcher(IFramework framework)
     {
-        if (Player.InPvP)
+        if (PlayerEx.InPvP)
         {
             if (!inpvp)
             {
@@ -111,16 +122,16 @@ public class Automaton : IDalamudPlugin
         Svc.Framework.Update -= EventWatcher;
         C.EnabledTweaks.CollectionChanged -= OnChange;
         AddonObserver.Dispose();
-        Memory.Dispose();
+        Memory?.Dispose();
         ECommonsMain.Dispose();
     }
 
     private void OnCommand(string command, string args)
     {
-        if (args.StartsWith("d"))
-            EzConfigGui.WindowSystem.Windows.First(w => w is DebugWindow).IsOpen ^= true;
+        if (args.StartsWith('d'))
+            EzConfigGui.GetWindow<DebugWindow>()!.Toggle();
         else
-            EzConfigGui.Window.IsOpen = !EzConfigGui.Window.IsOpen;
+            EzConfigGui.Window.Toggle();
     }
 
     private void InitializeTweaks()

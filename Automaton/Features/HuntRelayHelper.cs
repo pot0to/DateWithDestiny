@@ -8,7 +8,7 @@ using ECommons.Automation;
 using ECommons.ExcelServices;
 using ECommons.ImGuiMethods;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using System.Data;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -61,7 +61,7 @@ public class HuntRelayHelperConfiguration
 public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
 {
     public override string Name => "Hunt Relay Helper";
-    public override string Description => "Appends a clickable icon to messages with a MapLinkPayload to relay them to other channels.";
+    public override string Description => "Appends a clickable icon to messages with a MapLinkPayload to relay them to other channels. THIS IS CURRENTLY BROKEN, AWAITING A FIX.";
 
     private DalamudLinkPayload RelayLinkPayload = null!;
     private readonly string InstanceHeuristics = @"\b(?:instance\s*(?<instanceNumber>\d+)|i(?<iNumber>\d+))\b";
@@ -200,22 +200,23 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                     switch (Config.AssumedLocality)
                     {
                         case Locality.PlayerHomeWorld:
-                            world = Player.Object.HomeWorld.GameData;
+                            world = Player.Object.HomeWorld.Value;
                             break;
                         case Locality.PlayerCurrentWorld:
-                            world = Player.Object.CurrentWorld.GameData;
+                            world = Player.Object.CurrentWorld.Value;
                             break;
                         case Locality.SenderHomeWorld:
                             world = sender.Payloads.OfType<TextPayload>()
-                                .Select(p => p.Text!.Contains((char)SeIconChar.CrossWorld) ? FindRow<World>(x => x!.IsPublic && p.Text.Split((char)SeIconChar.CrossWorld)[1].Contains(x.Name.RawString, StringComparison.OrdinalIgnoreCase)) : Player.Object.CurrentWorld.GameData)
-                                .FirstOrDefault(Player.Object.CurrentWorld.GameData);
+                                .Select(p => p.Text!.Contains((char)SeIconChar.CrossWorld) ? FindRow<World>(x => x!.IsPublic && p.Text.Split((char)SeIconChar.CrossWorld)[1].Contains(x.Name.ToString(), StringComparison.OrdinalIgnoreCase)) : Player.Object.CurrentWorld.Value)
+                                .FirstOrDefault(Player.Object.CurrentWorld.Value);
                             break;
                     }
+                    //Svc.Log.Debug($"Failed to detect world initially, relying on fallback. World is now {world.Value.Name}");
                 }
-                if (world != null)
+                if (world.HasValue)
                 {
-                    Svc.Log.Verbose($"Detected world {world.Name} and instance {instance} in {nameof(MapLinkPayload)} message: {message}");
-                    message.Payloads.AddRange([RelayLinkPayload, new IconPayload(BitmapFontIcon.NotoriousMonster), new RelayPayload(mlp, world.RowId, instance, relayType, (uint)type).ToRawPayload(), RawPayload.LinkTerminator]);
+                    //Svc.Log.Verbose($"Detected world {world.Value.Name} and instance {instance} in {nameof(MapLinkPayload)} message: {message}");
+                    message.Payloads.AddRange([RelayLinkPayload, new IconPayload(BitmapFontIcon.NotoriousMonster), new RelayPayload(mlp, world.Value.RowId, instance, relayType, (uint)type).ToRawPayload(), RawPayload.LinkTerminator]);
                 }
                 else
                     Svc.Log.Info($"Failed to detect world in {nameof(MapLinkPayload)} message: {message}");
@@ -223,7 +224,7 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         }
         catch (Exception ex)
         {
-            Svc.Log.Error(ex.Message, ex);
+            Svc.Log.Error($"{nameof(HuntRelayHelper)}.{nameof(OnChatMessage)} {ex}", ex);
         }
     }
 
@@ -243,9 +244,9 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
             // TODO: add a check to see if the player is in novice network before sending
             if ((XivChatType)payload.OriginChannel == channel && Config.DontRepeatRelays) continue;
             if (channel.GetAttribute<XivChatTypeInfoAttribute>()!.FancyName.StartsWith("Linkshell") && Player.CurrentWorld != Player.HomeWorld) continue;
-            if (islocal && Player.Object.CurrentWorld.GameData != payload.World && Config.OnlySendLocalHuntsToLocalChannels) continue;
+            if (islocal && Player.Object.CurrentWorld.Value.RowId != payload.World.RowId && Config.OnlySendLocalHuntsToLocalChannels) continue;
 
-            TaskManager.EnqueueDelay(500);
+            //TaskManager.EnqueueDelay(500);
 #pragma warning disable CS0618 // Type or member is obsolete
             TaskManager.Enqueue(() =>
             {
@@ -270,6 +271,7 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
             switch (s)
             {
                 case "<flag>":
+                    // Hook PronounModule.Instance()->VirtualTable->ProcessString and decode the Utf8String to check the args here in case they change in the future
                     sb.BeginMacro(Lumina.Text.Payloads.MacroCode.Fixed)
                         .AppendIntExpression(200)
                         .AppendIntExpression(3)
@@ -278,6 +280,7 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
                         .AppendIntExpression(MapLink.RawX) // x -> (int)(MathF.Round(posX, 3, MidpointRounding.AwayFromZero) * 1000)
                         .AppendIntExpression(MapLink.RawY) // y
                         .AppendIntExpression(-30000) // z or -30000 for no z
+                        .AppendIntExpression(0) // PlaceName override if not 0
                         .EndMacro();
                     break;
                 case "<world>":
@@ -343,9 +346,9 @@ public class HuntRelayHelper : Tweak<HuntRelayHelperConfiguration>
         World? partial = null;
         if (Config.AllowPartialWorldMatches)
             foreach (var word in RemoveConflicts(text).Split(' ').Where(t => !ECommons.GenericHelpers.IsNullOrEmpty(t) && t.Length > 2))
-                partial ??= FindRow<World>(x => x!.IsPublic && x.DataCenter.Value!.Name == Player.CurrentDataCenter && x.Name.RawString.Contains(RemoveNonAlphaNumeric(word), StringComparison.OrdinalIgnoreCase));
+                partial ??= FindRow<World>(x => x.IsPublic && x.DataCenter.Value.Name == Player.CurrentDataCenter && x.Name.ExtractText().Contains(RemoveNonAlphaNumeric(word), StringComparison.OrdinalIgnoreCase));
 
-        return (partial ?? FindRow<World>(x => x!.IsPublic && RemoveConflicts(text).Contains(x.Name.RawString, StringComparison.OrdinalIgnoreCase)) ?? null, heuristicInstance != 0 ? (uint)heuristicInstance : (uint)mapInstance, (uint)relayType);
+        return (partial ?? FindRow<World>(x => x.IsPublic && RemoveConflicts(text).Contains(x.Name.ExtractText(), StringComparison.OrdinalIgnoreCase)) ?? null, heuristicInstance != 0 ? (uint)heuristicInstance : (uint)mapInstance, (uint)relayType);
     }
 
     // I think this is the only case where an S rank has the name of a world contained within it

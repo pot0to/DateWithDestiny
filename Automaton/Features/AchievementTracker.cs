@@ -51,22 +51,23 @@ public unsafe class AchievementTracker : Tweak<AchievementTrackerConfiguration>
         public bool Completed => CurrentProgress != default && CurrentProgress >= MaxProgress;
     }
 
+    private readonly Memory.AchievementProgress AchievementProgress = new();
     public override void Enable()
     {
-        P.Memory.ReceiveAchievementProgressHook.Enable();
+        AchievementProgress.ReceiveAchievementProgressHook.Enable();
         Events.AchievementProgressUpdate += OnAchievementProgressUpdate;
         EzConfigGui.WindowSystem.AddWindow(new AchievementTrackerUI(this));
     }
 
     public override void Disable()
     {
-        P.Memory.ReceiveAchievementProgressHook.Disable();
+        AchievementProgress.ReceiveAchievementProgressHook.Disable();
         Events.AchievementProgressUpdate -= OnAchievementProgressUpdate;
-        Utils.RemoveWindow<AchievementTrackerUI>();
+        EzConfigGui.RemoveWindow<AchievementTrackerUI>();
     }
 
     [CommandHandler("/atracker", "Toggle the Achievement Tracker window")]
-    private void OnCommand(string command, string arguments) => Utils.GetWindow<AchievementTrackerUI>()!.IsOpen ^= true;
+    private void OnCommand(string command, string arguments) => EzConfigGui.GetWindow<AchievementTrackerUI>()!.IsOpen ^= true;
 
     private void OnAchievementProgressUpdate(uint id, uint current, uint max)
     {

@@ -1,8 +1,9 @@
 ﻿using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.Interop;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 
 namespace Automaton.Utilities;
+#nullable disable
 public class Inventory
 {
     public static readonly InventoryType[] PlayerInventory =

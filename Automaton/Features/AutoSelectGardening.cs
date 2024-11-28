@@ -8,7 +8,7 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 
 namespace Automaton.Features;
 
@@ -41,9 +41,9 @@ public unsafe class AutoSelectGardening : Tweak<AutoSelectGardeningConfiguration
 
     public override void Enable()
     {
-        Seeds = GetSheet<Item>().Where(x => x.ItemUICategory.Row == 82 && x.FilterGroup == 20).ToDictionary(x => x.RowId, x => x);
-        Soils = GetSheet<Item>().Where(x => x.ItemUICategory.Row == 82 && x.FilterGroup == 21).ToDictionary(x => x.RowId, x => x);
-        Fertilizers = GetSheet<Item>().Where(x => x.ItemUICategory.Row == 82 && x.FilterGroup == 22).ToDictionary(x => x.RowId, x => x);
+        Seeds = GetSheet<Item>().Where(x => x.ItemUICategory.Value.RowId == 82 && x.FilterGroup == 20).ToDictionary(x => x.RowId, x => x);
+        Soils = GetSheet<Item>().Where(x => x.ItemUICategory.Value.RowId == 82 && x.FilterGroup == 21).ToDictionary(x => x.RowId, x => x);
+        Fertilizers = GetSheet<Item>().Where(x => x.ItemUICategory.Value.RowId == 82 && x.FilterGroup == 22).ToDictionary(x => x.RowId, x => x);
         AddonText = GetSheet<Addon>().ToDictionary(x => x.RowId, x => x);
         Svc.Framework.Update += RunFeature;
     }

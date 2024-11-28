@@ -1,8 +1,11 @@
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
-using FFXIVClientStructs.Attributes;
-using FFXIVClientStructs.FFXIV.Client.UI;
+using ECommons.Automation;
+using ECommons.ImGuiMethods;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
+using Lumina.Excel.Sheets;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -10,7 +13,7 @@ namespace Automaton.UI;
 
 internal class DebugWindow : Window
 {
-    public DebugWindow() : base($"{Name} - Debug {P.GetType().Assembly.GetName().Version}###{Name}{nameof(DebugWindow)}")
+    public DebugWindow() : base($"{Name} - Debug {VersionString}###{nameof(DebugWindow)}")
     {
         SizeConstraints = new WindowSizeConstraints
         {
@@ -21,100 +24,83 @@ internal class DebugWindow : Window
 
     public static void Dispose() { }
 
+    public override bool DrawConditions() => Player.Available && C.ShowDebug;
+
+    private Enums.ExecuteCommandFlag flag;
+    private Enums.ExecuteCommandComplexFlag flag2;
+    private int[] ecParams = new int[4];
+    private int[] eccParams = new int[4];
+    private readonly Memory.ExecuteCommands executeCommands = new();
     public override unsafe void Draw()
     {
-        if (!Player.Available) return;
-        for (var i = 0; i < RaptureAtkUnitManager.Instance()->AllLoadedUnitsList.Count; i++)
+        using var tabs = ImRaii.TabBar("tabs");
+        if (!tabs) return;
+        using (var tabExecuteCommand = ImRaii.TabItem("ExecuteCommand"))
         {
-            var atk = RaptureAtkUnitManager.Instance()->AllLoadedUnitsList.Entries[i].Value;
-            if (atk == null || (atk->Flags198 & 0b1100_0000) != 0 || atk->HostId != 0) continue;
-            ImGui.TextUnformatted($"special addon: {atk->NameString}");
-        }
-        //for (var i = 0; i < RaptureAtkUnitManager.Instance()->FocusedUnitsList.Count; i++)
-        //{
-        //    var atk = RaptureAtkUnitManager.Instance()->FocusedUnitsList.Entries[i].Value;
-        //    ImGui.TextUnformatted($"{i} {atk == null} {(atk != null ? atk->NameString : "")}");
-        //}
-        //ImGui.TextUnformatted($"{RaptureAtkUnitManager.Instance()->FocusedUnitsList.Entries[^1].Value == null}");
-        //if (TryGetAddonByName<AtkUnitBase>("LookingForGroup", out var lfg))
-        //{
-        //    ImGui.TextUnformatted($"{RaptureAtkUnitManager.Instance()->FocusedUnitsList.Entries[^1].Value == lfg}");
-        //}
-        //for (var i = 0; i < RaptureAtkUnitManager.Instance()->FocusedUnitsList.Count; i++)
-        //{
-        //    var atk = RaptureAtkUnitManager.Instance()->FocusedUnitsList.Entries[i].Value;
-        //    if (atk == null) continue;
-        //    var str = GetAddonStruct(atk);
-        //    if (str == null) continue;
-        //    ImGuiX.DrawSection($"{atk->NameString} - {str.GetType().Name}");
-        //    ImGui.Indent();
-        //    foreach (var f in str.GetType().GetFields())
-        //    {
-        //        var type = f.FieldType;
-        //        ImGui.TextUnformatted($"{f.Name}: {f.FieldType.Name} {f.FieldType.IsPointer} {f.GetValue(str)} {f.Attributes}");
-        //        if (type.IsPointer)
-        //        {
-        //            var val = (Pointer)f.GetValue(str);
-        //            var unboxed = Pointer.Unbox(val);
-        //            try
-        //            {
-        //                var eType = type.GetElementType();
-        //                var ptrObj = SafeMemory.PtrToStructure(new IntPtr(unboxed), eType);
-        //            }
-        //            catch { }
-        //        }
-        //    }
-        //    ImGui.Unindent();
-        //}
-    }
+            if (tabExecuteCommand)
+            {
+                ImGuiX.Enum("ExecuteCommand", ref flag);
+                ImGui.InputInt("p1", ref ecParams[0]);
+                ImGui.InputInt("p2", ref ecParams[1]);
+                ImGui.InputInt("p3", ref ecParams[2]);
+                ImGui.InputInt("p4", ref ecParams[3]);
+                if (ImGui.Button("exeucte"))
+                    executeCommands.ExecuteCommand(flag, ecParams[0], ecParams[1], ecParams[2], ecParams[3]);
 
-    private static readonly Dictionary<string, Type?> AddonMapping = [];
-    public static unsafe object? GetAddonStruct(AtkUnitBase* atkUnitBase)
-    {
-        var addonName = atkUnitBase->NameString;
-        object addonObj;
-        if (addonName != null && AddonMapping.ContainsKey(addonName))
-        {
-            if (AddonMapping[addonName] == null)
-            {
-                addonObj = *atkUnitBase;
-            }
-            else
-            {
-                addonObj = Marshal.PtrToStructure(new IntPtr(atkUnitBase), AddonMapping[addonName]);
+                using var id = ImRaii.PushId("complex");
+                ImGuiX.Enum("ExecuteCommandComplex", ref flag2);
+                ImGui.InputInt("p1", ref eccParams[0]);
+                ImGui.InputInt("p2", ref eccParams[1]);
+                ImGui.InputInt("p3", ref eccParams[2]);
+                ImGui.InputInt("p4", ref eccParams[3]);
+                if (ImGui.Button("exeucte"))
+                    executeCommands.ExecuteCommandComplexLocation(flag2, Player.Position, eccParams[0], eccParams[1], eccParams[2], eccParams[3]);
+
             }
         }
-        else if (addonName != null)
+        using (var tabMiscTools = ImRaii.TabItem("Misc Tools"))
         {
-            AddonMapping.Add(addonName, null);
-
-            foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
+            if (tabMiscTools)
             {
-                try
+                List<string> cantSpend = [];
+                if (ImGui.Button("Spend Nuts"))
                 {
-                    foreach (var t in a.GetTypes())
+                    if (TryGetAddonByName<AtkUnitBase>("ShopExchangeCurrency", out var addon))
                     {
-                        if (!t.IsPublic) continue;
-                        var xivAddonAttr = (Addon)t.GetCustomAttribute(typeof(Addon), false);
-                        if (xivAddonAttr == null) continue;
-                        if (!xivAddonAttr.AddonIdentifiers.Contains(addonName)) continue;
-                        AddonMapping[addonName] = t;
-                        break;
+                        const uint nuts = 26533;
+                        var nutsAmt = InventoryManager.Instance()->GetInventoryItemCount(nuts);
+                        var nutsCost = 25;
+                        var freeslots = InventoryManager.Instance()->GetEmptySlotsInBag() + Inventory.GetEmptySlots([InventoryType.ArmoryRings]);
+                        uint tobuy = (uint)Math.Min(nutsAmt / nutsCost, freeslots);
+                        Svc.Log.Info($"{InventoryManager.Instance()->GetEmptySlotsInBag()} {Inventory.GetEmptySlots([InventoryType.ArmoryRings])} {nutsAmt} {nutsAmt / nutsCost} {tobuy}");
+                        Callback.Fire(addon, true, 0, 49, tobuy);
+                    }
+                    else
+                        cantSpend.Add("ShopExchangeCurrency not open");
+                }
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip($"Buys the most amount of {GetRow<Item>(34922)?.Name}");
+                cantSpend.ForEach(x => ImGuiEx.Text((uint)Colors.Red, x));
+            }
+        }
+        using (var tabPlayerEx = ImRaii.TabItem($"{nameof(PlayerEx)}"))
+        {
+            if (tabPlayerEx)
+            {
+                var pi = typeof(PlayerEx).GetProperties();
+                foreach (var p in pi)
+                {
+                    try
+                    {
+                        ImGui.TextColored(new Vector4(0.2f, 0.6f, 0.4f, 1), $"{p.Name}: ");
+                        ImGui.SameLine();
+                        ImGui.TextDisabled($"{p.GetValue(typeof(PlayerEx))}");
+                    }
+                    catch (Exception e)
+                    {
+                        ImGui.TextColored(new Vector4(1, 0, 0, 1), $"[ERROR] {e.Message}");
                     }
                 }
-                catch
-                {
-                    // ignored
-                }
             }
-
-            addonObj = *atkUnitBase;
         }
-        else
-        {
-            addonObj = *atkUnitBase;
-        }
-
-        return addonObj;
     }
 }

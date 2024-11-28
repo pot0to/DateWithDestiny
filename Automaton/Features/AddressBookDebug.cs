@@ -19,9 +19,9 @@ public class AddressBookDebug : Tweak<AddresBookDebugConfiguration>
     private string _name = string.Empty;
     public override void DrawConfig()
     {
-        if (!Player.Available || Player.InPvP) return;
+        if (!Player.Available || PlayerEx.InPvP) return;
         if (ImGui.InputText($"##NewLocation", ref _name, 50, ImGuiInputTextFlags.EnterReturnsTrue))
-            Config.Locations.Add((_name, Player.Territory, Player.Position));
+            Config.Locations.Add((_name, Player.Territory, PlayerEx.Position));
         ImGuiX.DrawSection("Locations in Zone");
 
         var locs = Config.Locations.Where(x => x.Territory == Player.Territory);
@@ -30,7 +30,7 @@ public class AddressBookDebug : Tweak<AddresBookDebugConfiguration>
             ImGuiEx.TextV(Colors.White, $"{loc.Name}: {loc.Position}");
             ImGui.SameLine();
             if (ImGuiComponents.IconButton(loc.Position.GetHashCode(), FontAwesomeIcon.FighterJet))
-                Player.Position = loc.Position;
+                PlayerEx.Position = loc.Position;
             ImGui.SameLine();
             if (ImGuiComponents.IconButton(loc.Position.GetHashCode(), FontAwesomeIcon.Trash))
                 Config.Locations.Remove(loc);

@@ -1,4 +1,4 @@
-﻿using Lumina.Excel.GeneratedSheets;
+﻿using Lumina.Excel.Sheets;
 
 namespace Automaton.Features;
 
@@ -13,7 +13,7 @@ public class AutoPillion : Tweak
 
     private unsafe void OnUpdate(IFramework framework)
     {
-        if (!Player.Available || Player.Occupied || Svc.Condition[ConditionFlag.Mounted])
+        if (!Player.Available || PlayerEx.Occupied || Svc.Condition[ConditionFlag.Mounted])
         {
             if (TaskManager.Tasks.Count > 0)
                 TaskManager.Abort();
@@ -21,7 +21,7 @@ public class AutoPillion : Tweak
         }
 
         // TODO: add a check if there are any seats left to get into
-        var target = Svc.Party.FirstOrDefault(o => o?.ObjectId != Player.Object.GameObjectId && o?.GameObject?.YalmDistanceX < 3 && GetRow<Mount>(o.GameObject.Character()->Mount.MountId)!.ExtraSeats > 0, null);
+        var target = Svc.Party.FirstOrDefault(o => o?.ObjectId != Player.Object.GameObjectId && o?.GameObject?.YalmDistanceX < 3 && GetRow<Mount>(o.GameObject.Character()->Mount.MountId)!.Value.ExtraSeats > 0, null);
         if (target != null && target.GameObject != null && P.Memory.RidePillion != null)
         {
             TaskManager.Enqueue(() => Svc.Log.Debug("Detected mounted party member with extra seats, mounting..."));

@@ -1,3 +1,6 @@
+framework:
+    - make it so one bad sig doesn't prevent all sigged tweaks from loading
+    - migrate config name to something agnostic
 relay helper: minion support, prevent double relaying
 Some sort of go to npc command that incorporates itemvendorlocation/lifestream/navmesh
 /tplast command to teleport to the last linked loc

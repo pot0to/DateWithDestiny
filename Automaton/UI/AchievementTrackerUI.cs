@@ -5,30 +5,15 @@ using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using ECommons.ImGuiMethods;
 using ImGuiNET;
-using SheetAchievement = Lumina.Excel.GeneratedSheets.Achievement;
+using SheetAchievement = Lumina.Excel.Sheets.Achievement;
 
 namespace Automaton.UI;
-public unsafe class AchievementTrackerUI : Window
+public unsafe class AchievementTrackerUI(AchievementTracker tweak) : Window($"Achievement Tracker##{nameof(AchievementTrackerUI)}")
 {
-    private readonly AchievementTracker _tweak;
+    private readonly AchievementTracker _tweak = tweak;
     private SheetAchievement? selectedAchievement;
     internal static string Search = string.Empty;
     private DateTime lastCallTime;
-
-    public AchievementTrackerUI(AchievementTracker tweak) : base($"Achievement Tracker##{Name}")
-    {
-        _tweak = tweak;
-
-        //IsOpen = true;
-        //DisableWindowSounds = true;
-
-        //Flags |= ImGuiWindowFlags.NoSavedSettings;
-        //Flags |= ImGuiWindowFlags.NoResize;
-        //Flags |= ImGuiWindowFlags.NoMove;
-
-        //SizeCondition = ImGuiCond.Always;
-        //Size = new(360, 428);
-    }
 
     public override bool DrawConditions() => Player.Available;
 
@@ -76,14 +61,14 @@ public unsafe class AchievementTrackerUI : Window
             selectedAchievement = null;
         }
 
-        foreach (var achv in GetSheet<SheetAchievement>().Where(x => !x.Name.RawString.IsNullOrEmpty() && x.Name.RawString.Contains(Search, StringComparison.CurrentCultureIgnoreCase)))
+        foreach (var achv in GetSheet<SheetAchievement>().Where(x => !x.Name.ToString().IsNullOrEmpty() && x.Name.ToString().Contains(Search, StringComparison.CurrentCultureIgnoreCase)))
         {
             ImGui.PushID($"###achievement{achv.RowId}");
-            var selected = ImGui.Selectable($"{achv.Name.RawString}", achv.RowId == selectedAchievement?.RowId);
+            var selected = ImGui.Selectable($"{achv.Name}", achv.RowId == selectedAchievement?.RowId);
 
             if (selected)
             {
-                _tweak.Config.Achievements.Add(new AchievementTracker.Achv { ID = achv.RowId, Name = achv.Name, Description = GetRow<SheetAchievement>(achv.RowId)!.Description.RawString, Points = GetRow<SheetAchievement>(achv.RowId)!.Points });
+                _tweak.Config.Achievements.Add(new AchievementTracker.Achv { ID = achv.RowId, Name = achv.Name.ToString(), Description = GetRow<SheetAchievement>(achv.RowId)!.Value.Description.ToString(), Points = GetRow<SheetAchievement>(achv.RowId)!.Value.Points });
                 _tweak.RequestUpdate(achv.RowId);
             }
 

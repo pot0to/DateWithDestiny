@@ -1,48 +1,7 @@
 {
   "version": 1,
   "dependencies": {
-    "net8.0-windows7.0": {
-      "DalamudPackager": {
-        "type": "Direct",
-        "requested": "[2.1.13, )",
-        "resolved": "2.1.13",
-        "contentHash": "rMN1omGe8536f4xLMvx9NwfvpAc9YFFfeXJ1t4P4PE6Gu8WCIoFliR1sh07hM+bfODmesk/dvMbji7vNI+B/pQ=="
-      },
-      "NetStone": {
-        "type": "Direct",
-        "requested": "[1.1.2, )",
-        "resolved": "1.1.2",
-        "contentHash": "y4Ycg/Ngz3q7yZJYW7zoZysigVyhdUkPpMn6/XLOKXw5VzKsqE4owj2rrybK42xx653zcDZ7FmybFAFMtIoJOQ==",
-        "dependencies": {
-          "HtmlAgilityPack": "1.11.46",
-          "Karashiiro.HtmlAgilityPack.CssSelectors.NetCoreFork": "0.0.2",
-          "Newtonsoft.Json": "13.0.3"
-        }
-      },
-      "YamlDotNet": {
-        "type": "Direct",
-        "requested": "[15.3.0, )",
-        "resolved": "15.3.0",
-        "contentHash": "F93japYa9YrJ59AZGhgdaUGHN7ITJ55FBBg/D/8C0BDgahv/rQD6MOSwHxOJJpon1kYyslVbeBrQ2wcJhox01w=="
-      },
-      "HtmlAgilityPack": {
-        "type": "Transitive",
-        "resolved": "1.11.46",
-        "contentHash": "dLMn4EVfJBHWmWK4Uh0XGD76FPLHI0qr2Tm0s1m/xmgiHb1JUb9zB8AzO8HtrkBBlMN6JfCUBYddhqC0hZNR+g=="
-      },
-      "Karashiiro.HtmlAgilityPack.CssSelectors.NetCoreFork": {
-        "type": "Transitive",
-        "resolved": "0.0.2",
-        "contentHash": "+7cqe/+tN7gDW36pgrefSeyAQvhqznM34D0uTwnETgU25iAC6boPtblxbrMluW5rA9o6MzjEg4qZK7WrnT+tSw==",
-        "dependencies": {
-          "HtmlAgilityPack": "1.11.46"
-        }
-      },
-      "Newtonsoft.Json": {
-        "type": "Transitive",
-        "resolved": "13.0.3",
-        "contentHash": "HrC5BXdl00IP9zeV+0Z848QWPAoCr9P3bDEZguI+gkLcBKAOxix/tLEAAHC+UvDNPv4a2d18lOReHMOagPa+zQ=="
-      },
+    "net9.0-windows7.0": {
       "autoretainerapi": {
         "type": "Project",
         "dependencies": {
@@ -51,12 +10,6 @@
       },
       "ecommons": {
         "type": "Project"
-      },
-      "kamitoolkit": {
-        "type": "Project",
-        "dependencies": {
-          "DalamudPackager": "[2.1.13, )"
-        }
       }
     }
   }

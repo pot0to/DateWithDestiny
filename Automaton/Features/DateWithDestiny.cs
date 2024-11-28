@@ -12,8 +12,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
-using IronPython.Compiler.Ast;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using static ECommons.GameFunctions.ObjectFunctions;
 
 namespace Automaton.Features;
@@ -152,16 +151,16 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private static readonly uint[] ForlornIDs = [7586, 7587];
     private static readonly uint[] TwistOfFateStatusIDs = [1288, 1289];
 
-    private ushort fateID;
+    private ushort nextFateID;
+    private byte fateMaxLevel;
+
     private ushort FateID
     {
-        get => fateID; set
+        get; set
         {
-            if (fateID != value)
-            {
+            if (field != value)
                 SyncFate(value);
-            }
-            fateID = value;
+            field = value;
         }
     }
 
@@ -226,7 +225,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     }
 
     [CommandHandler("/vfate", "Opens the FATE tracker")]
-    private void OnCommand(string command, string arguments) => Utils.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
+    private void OnCommand(string command, string arguments) => EzConfigGui.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
 
     private int _successiveInstanceChanges = 0;
     private readonly int _distanceToTargetAetheryte = 50; // object.IsTargetable has a larger range than actually clickable
@@ -281,6 +280,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                     Svc.Log.Info("State Change: " + State.ToString());
                     return;
                 }
+
+                if (Config.EquipWatch && HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
+                    PlayerEx.Equip(15222);
 
                 if (!P.Navmesh.PathfindInProgress() && !P.Navmesh.IsRunning())
                 {
@@ -396,6 +398,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             var closestAetheryte = Coords.GetNearestAetheryte(Svc.ClientState.TerritoryType, targetPos);
 
             if (closestAetheryte != 0)
+            if ((Config.FullAuto || Config.AutoFly) && Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight] && PlayerEx.InFlightAllowedTerritory)
             {
                 var aetheryteTravelDistance = Coords.GetDistanceToAetheryte(closestAetheryte, targetPos) + teleportTimePenalty;
                 if (aetheryteTravelDistance < directTravelDistance) // if the closest aetheryte is a shortcut, then teleport
@@ -515,14 +518,14 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     private IOrderedEnumerable<IFate> GetFates() => Svc.Fates.Where(FateConditions)
         .OrderByDescending(x =>
         Config.PrioritizeBonusFates
-        && x.HasExpBonus
+        && x.HasBonus
         && (
         !Config.BonusWhenTwist
         || Player.Status.FirstOrDefault(x => TwistOfFateStatusIDs.Contains(x.StatusId)) != null)
         )
         .ThenByDescending(x => Config.PrioritizeStartedFates && x.Progress > 0)
-        .ThenBy(f => Vector3.Distance(Player.Position, f.Position));
-    public bool FateConditions(IFate f) => f.GameData.Rule == 1 && f.State != FateState.Preparation && f.Duration <= Config.MaxDuration && f.Progress <= Config.MaxProgress && f.TimeRemaining > Config.MinTimeRemaining && !Config.blacklist.Contains(f.FateId);
+        .ThenBy(f => Vector3.Distance(PlayerEx.Position, f.Position));
+    public bool FateConditions(IFate f) => f.GameData.Value.Rule == 1 && f.State != Dalamud.Game.ClientState.Fates.FateState.Preparation && f.Duration <= Config.MaxDuration && f.Progress <= Config.MaxProgress && f.TimeRemaining > Config.MinTimeRemaining && !Config.blacklist.Contains(f.FateId);
 
     private unsafe DGameObject? GetMobTargetingPlayer()
         => Svc.Objects
@@ -551,7 +554,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         // Deprioritize mobs in combat with other players (hopefully avoid botlike pingpong behavior in trash fates)
         .ThenBy(x => x.GetNameplateKind() == NameplateKind.HostileEngagedOther && !x.IsTargetingPlayer())
         // Prioritize closest enemy        
-        .ThenBy(x => Math.Floor(Vector3.Distance(Player.Position, x.Position)))
+        .ThenBy(x => Math.Floor(Vector3.Distance(PlayerEx.Position, x.Position)))
         // Prioritize lowest HP enemy
         .FirstOrDefault();
 

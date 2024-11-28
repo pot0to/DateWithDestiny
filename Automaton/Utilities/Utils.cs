@@ -1,8 +1,6 @@
 using Dalamud.Interface.Textures.TextureWraps;
-using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using ECommons.Reflection;
-using ECommons.SimpleGui;
 using FFXIVClientStructs.Attributes;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -14,12 +12,6 @@ using System.Reflection;
 namespace Automaton.Utilities;
 public static class Utils
 {
-    public enum MovementType
-    {
-        Direct,
-        Pathfind
-    }
-
     public static IDalamudTextureWrap? GetIcon(uint iconId) => iconId != 0 ? Svc.Texture?.GetFromGameIcon(iconId).GetWrapOrEmpty() : null;
 
     public static bool HasPlugin(string name) => DalamudReflector.TryGetDalamudPlugin(name, out _, false, true);
@@ -115,49 +107,4 @@ public static class Utils
 
     public static bool AllNull(params object[] objects) => objects.All(s => s == null);
     public static bool AnyNull(params object[] objects) => objects.Any(s => s == null);
-
-    public static T? GetWindow<T>() where T : Window => !typeof(T).IsSubclassOf(typeof(Window)) ? null : EzConfigGui.WindowSystem.Windows.FirstOrDefault(w => w.GetType() == typeof(T)) as T;
-
-    public static void RemoveWindow<T>() where T : Window
-    {
-        if (!typeof(T).IsSubclassOf(typeof(Window)))
-            return;
-        var window = EzConfigGui.WindowSystem.Windows.FirstOrDefault(w => w.GetType() == typeof(T));
-        if (window != null)
-            EzConfigGui.WindowSystem.RemoveWindow(window);
-    }
-
-    public static unsafe AtkResNode* GetNodeByIDChain(AtkResNode* node, params int[] ids)
-    {
-        if (node == null || ids.Length <= 0)
-            return null;
-
-        if (node->NodeId == ids[0])
-        {
-            if (ids.Length == 1)
-                return node;
-
-            var newList = new List<int>(ids);
-            newList.RemoveAt(0);
-
-            var childNode = node->ChildNode;
-            if (childNode != null)
-                return GetNodeByIDChain(childNode, [.. newList]);
-
-            if ((int)node->Type >= 1000)
-            {
-                var componentNode = node->GetAsAtkComponentNode();
-                var component = componentNode->Component;
-                var uldManager = component->UldManager;
-                childNode = uldManager.NodeList[0];
-                return childNode == null ? null : GetNodeByIDChain(childNode, [.. newList]);
-            }
-
-            return null;
-        }
-
-        //check siblings
-        var sibNode = node->PrevSiblingNode;
-        return sibNode != null ? GetNodeByIDChain(sibNode, ids) : null;
-    }
 }

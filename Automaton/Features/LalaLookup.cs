@@ -1,6 +1,6 @@
 using Dalamud.Game.Gui.ContextMenu;
 using Dalamud.Utility;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using NetStone;
 using NetStone.Search.Character;
 using System.Threading.Tasks;
@@ -57,7 +57,7 @@ public class LalaLookup : Tweak
             case "ContentMemberList": // Eureka/Bozja/...
             case "BeginnerChatList":
                 return menuTargetDefault.TargetName != string.Empty
-                       && (GetSheet<World>()?.FirstOrDefault(x => x.RowId == menuTargetDefault.TargetHomeWorld.Id)?.IsPublic ?? false);
+                       && (GetSheet<World>()?.FirstOrDefault(x => x.RowId == menuTargetDefault.TargetHomeWorld.RowId).IsPublic ?? false);
             default:
                 break;
         }
@@ -76,7 +76,7 @@ public class LalaLookup : Tweak
         if (menuArgs.Target is not MenuTargetDefault menuTargetDefault) return;
 
         var playerName = menuTargetDefault.TargetName;
-        var world = GetSheet<World>()?.FirstOrDefault(x => x.RowId == menuTargetDefault.TargetHomeWorld.Id);
+        var world = GetSheet<World>()?.FirstOrDefault(x => x.RowId == menuTargetDefault.TargetHomeWorld.RowId);
         if (world is not { IsPublic: true })
         {
             ModuleMessage($"Unable to find world for {playerName}");
@@ -89,7 +89,7 @@ public class LalaLookup : Tweak
             var searchResponse = await _client.SearchCharacter(new CharacterSearchQuery
             {
                 CharacterName = playerName,
-                World = world.Name,
+                World = world.Value.Name.ToString(),
             });
 
             var lodestoneCharacter = searchResponse?.Results.FirstOrDefault(entry => string.Equals(entry.Name, playerName, StringComparison.OrdinalIgnoreCase));
