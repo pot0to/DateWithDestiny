@@ -1,5 +1,4 @@
 using DateWithDestiny.IPC;
-using DateWithDestiny.UI;
 using Dalamud.Game.ClientState.Fates;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;

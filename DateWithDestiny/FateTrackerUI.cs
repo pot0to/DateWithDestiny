@@ -7,7 +7,7 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 
-namespace DateWithDestiny.UI;
+namespace DateWithDestiny;
 internal class FateTrackerUI(DateWithDestiny tweak) : Window($"Fate Tracker##{nameof(FateTrackerUI)}")
 {
     private readonly DateWithDestiny _tweak = tweak;

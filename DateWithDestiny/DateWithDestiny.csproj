@@ -100,10 +100,4 @@
         <ProjectReference Include="..\AutoRetainerAPI\AutoRetainerAPI\AutoRetainerAPI.csproj" />
         <ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
     </ItemGroup>
-
-    <ItemGroup>
-        <Compile Update="UI\DebugWindow.cs">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Compile>
-    </ItemGroup>
 </Project>

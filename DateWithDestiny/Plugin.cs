@@ -1,6 +1,5 @@
 using DateWithDestiny.Configuration;
 using DateWithDestiny.IPC;
-using DateWithDestiny.UI;
 using AutoRetainerAPI;
 using Dalamud.Plugin;
 using ECommons;
@@ -42,25 +41,14 @@ public class Plugin : IDalamudPlugin
         P = this;
         ECommonsMain.Init(pluginInterface, P, ECommons.Module.DalamudReflector, ECommons.Module.ObjectFunctions);
 
-        EzConfig.DefaultSerializationFactory = new YamlFactory();
+        //EzConfig.DefaultSerializationFactory = new YamlFactory();
         Config = EzConfig.Init<Config>();
-
-        IMigration[] migrations = [new V3()];
-        foreach (var migration in migrations)
-        {
-            if (Config.Version < migration.Version)
-            {
-                Svc.Log.Info($"Migrating from config version {Config.Version} to {migration.Version}");
-                migration.Migrate(ref Config);
-                Config.Version = migration.Version;
-            }
-        }
 
         Svc.Framework.Update += EventWatcher;
 
         EzCmd.Add(Command, OnCommand, $"Opens the {Name} menu");
-        EzConfigGui.Init(new HaselWindow().Draw, nameOverride: $"{Name} {VersionString}");
-        EzConfigGui.WindowSystem.AddWindow(new DebugWindow());
+        //EzConfigGui.Init(new HaselWindow().Draw, nameOverride: $"{Name} {VersionString}");
+        //EzConfigGui.WindowSystem.AddWindow(new DebugWindow());
         try
         {
             Memory = new();
@@ -126,10 +114,10 @@ public class Plugin : IDalamudPlugin
 
     private void OnCommand(string command, string args)
     {
-        if (args.StartsWith('d'))
-            EzConfigGui.GetWindow<DebugWindow>()!.Toggle();
-        else
-            EzConfigGui.Window.Toggle();
+        //if (args.StartsWith('d'))
+            //EzConfigGui.GetWindow<DebugWindow>()!.Toggle();
+        //else
+        EzConfigGui.Window.Toggle();
     }
 
     private void InitializeTweaks()

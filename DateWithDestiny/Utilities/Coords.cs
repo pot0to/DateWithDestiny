@@ -49,7 +49,7 @@ public static class Coords
 
     public static float GetDistanceToAetheryte(uint aetheryteId, Vector3 pos)
     {
-        var mapMarker = FindRow<MapMarker>(m => m?.DataType == 3 && m.DataKey == aetheryteId);
+        var mapMarker = FindRow<MapMarker>(m => m.DataType == 3 && m.DataKey.RowId == aetheryteId);
         if (mapMarker == null)
         {
             Svc.Log.Error($"Cannot find aetherytes position for aetheryteId: {aetheryteId}");
@@ -58,8 +58,8 @@ public static class Coords
         else
         {
             Svc.Log.Debug("Player.Position: " + Player.Position.X + " " + Player.Position.Y + " " + Player.Position.Z);
-            var AethersX = ConvertMapMarkerToRawPosition(mapMarker.X);
-            var AethersY = ConvertMapMarkerToRawPosition(mapMarker.Y);
+            var AethersX = ConvertMapMarkerToRawPosition(mapMarker.Value.X);
+            var AethersY = ConvertMapMarkerToRawPosition(mapMarker.Value.Y);
             Svc.Log.Debug("Aetheryte Position: " + AethersX + " " + AethersY);
             return Vector3.Distance(new Vector3(AethersX, pos.Y, AethersY), pos);
         }
