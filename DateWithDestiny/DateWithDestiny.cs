@@ -16,39 +16,6 @@ using static ECommons.GameFunctions.ObjectFunctions;
 
 namespace DateWithDestiny;
 
-public class DateWithDestinyConfiguration
-{
-    public HashSet<uint> blacklist = [];
-    public HashSet<uint> whitelist = [];
-    public List<uint> zones = [];
-    [BoolConfig] public bool YokaiMode;
-    [BoolConfig] public bool StayInMeleeRange;
-    [BoolConfig] public bool PrioritizeForlorns = true;
-    [BoolConfig] public bool PrioritizeBonusFates = true;
-    [BoolConfig] public bool PrioritizeStartedFates;
-    [BoolConfig(DependsOn = nameof(PrioritizeBonusFates))] public bool BonusWhenTwist = false;
-    [BoolConfig] public bool EquipWatch = true;
-    [BoolConfig] public bool SwapMinions = true;
-    [BoolConfig] public bool SwapZones = true;
-    [BoolConfig] public bool ChangeInstances = true;
-
-    [BoolConfig] public bool FullAuto = true;
-    [BoolConfig(DependsOn = nameof(FullAuto))] public bool AutoMount = true;
-    [BoolConfig(DependsOn = nameof(FullAuto))] public bool AutoFly = true;
-    [BoolConfig(DependsOn = nameof(FullAuto))] public bool PathToFate = true;
-    [BoolConfig(DependsOn = nameof(FullAuto))] public bool AutoSync = true;
-    [BoolConfig(DependsOn = nameof(FullAuto))] public bool AutoTarget = true;
-    [BoolConfig(DependsOn = nameof(FullAuto))] public bool AutoMoveToMobs = true;
-    [IntConfig(DefaultValue = 900)] public int MaxDuration = 900;
-    [IntConfig(DefaultValue = 120)] public int MinTimeRemaining = 120;
-    [IntConfig(DefaultValue = 90)] public int MaxProgress = 90;
-
-    [BoolConfig] public bool ShowFateTimeRemaining;
-    [BoolConfig] public bool ShowFateBonusIndicator;
-
-    [BoolConfig] public bool AbortTasksOnTimeout;
-}
-
 public enum DateWithDestinyState
 {
     Unknown,
@@ -63,11 +30,11 @@ public enum DateWithDestinyState
     SummonChocobo
 }
 
-[Tweak, Requirement(NavmeshIPC.Name, NavmeshIPC.Repo)]
-internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
+//[Tweak, Requirement(NavmeshIPC.Name, NavmeshIPC.Repo)]
+internal class DateWithDestiny
 {
-    public override string Name => "Date with Destiny";
-    public override string Description => $"Fate tracker and mover. Doesn't handle combat. Open the menu with /vfate.";
+    public string Name => "Date with Destiny";
+    public string Description => $"Fate tracker and mover. Doesn't handle combat. Open the menu with /vfate.";
 
     public bool active = false;
     private static Vector3 TargetPos;
@@ -163,75 +130,75 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         }
     }
 
-    public override void DrawConfig()
+    public void DrawConfig()
     {
         ImGuiX.DrawSection("Configuration");
         ImGui.Checkbox("Yo-Kai Mode (Very Experimental)", ref yokaiMode);
-        ImGui.Checkbox("Prioritize targeting Forlorns", ref Config.PrioritizeForlorns);
-        ImGui.Checkbox("Prioritize Fates with EXP bonus", ref Config.PrioritizeBonusFates);
+        ImGui.Checkbox("Prioritize targeting Forlorns", ref C.PrioritizeForlorns);
+        ImGui.Checkbox("Prioritize Fates with EXP bonus", ref C.PrioritizeBonusFates);
         ImGui.Indent();
-        using (var _ = ImRaii.Disabled(!Config.PrioritizeBonusFates))
+        using (var _ = ImRaii.Disabled(!C.PrioritizeBonusFates))
         {
-            ImGui.Checkbox("Only with Twist of Fate", ref Config.BonusWhenTwist);
+            ImGui.Checkbox("Only with Twist of Fate", ref C.BonusWhenTwist);
         }
         ImGui.Unindent();
-        ImGui.Checkbox("Prioritize fates that have progress already (up to configured limit)", ref Config.PrioritizeStartedFates);
-        ImGui.Checkbox("Always close to melee range of target", ref Config.StayInMeleeRange);
-        ImGui.Checkbox("Full Auto Mode", ref Config.FullAuto);
+        ImGui.Checkbox("Prioritize fates that have progress already (up to configured limit)", ref C.PrioritizeStartedFates);
+        ImGui.Checkbox("Always close to melee range of target", ref C.StayInMeleeRange);
+        ImGui.Checkbox("Full Auto Mode", ref C.FullAuto);
         if (ImGui.IsItemHovered()) ImGui.SetTooltip($"All the below options will be treated as true if this is enabled.");
         ImGui.Indent();
-        using (var _ = ImRaii.Disabled(Config.FullAuto))
+        using (var _ = ImRaii.Disabled(C.FullAuto))
         {
-            ImGui.Checkbox("Auto Mount", ref Config.AutoMount);
-            ImGui.Checkbox("Auto Fly", ref Config.AutoFly);
-            ImGui.Checkbox("Auto Sync", ref Config.AutoSync);
-            ImGui.Checkbox("Auto Target Mobs", ref Config.AutoTarget);
-            ImGui.Checkbox("Auto Move To Mobs", ref Config.AutoMoveToMobs);
-            ImGui.Checkbox("Path To Next Fate", ref Config.PathToFate);
+            ImGui.Checkbox("Auto Mount", ref C.AutoMount);
+            ImGui.Checkbox("Auto Fly", ref C.AutoFly);
+            ImGui.Checkbox("Auto Sync", ref C.AutoSync);
+            ImGui.Checkbox("Auto Target Mobs", ref C.AutoTarget);
+            ImGui.Checkbox("Auto Move To Mobs", ref C.AutoMoveToMobs);
+            ImGui.Checkbox("Path To Next Fate", ref C.PathToFate);
         }
         ImGui.Unindent();
 
         ImGuiX.DrawSection("Fate Options");
-        ImGui.DragInt("Max Duration (s)", ref Config.MaxDuration);
+        ImGui.DragInt("Max Duration (s)", ref C.MaxDuration);
         ImGui.SameLine();
-        ImGuiX.ResetButton(ref Config.MaxDuration, 900);
+        ImGuiX.ResetButton(ref C.MaxDuration, 900);
 
-        ImGui.DragInt("Min Time Remaining (s)", ref Config.MinTimeRemaining);
+        ImGui.DragInt("Min Time Remaining (s)", ref C.MinTimeRemaining);
         ImGui.SameLine();
-        ImGuiX.ResetButton(ref Config.MinTimeRemaining, 120);
+        ImGuiX.ResetButton(ref C.MinTimeRemaining, 120);
 
-        ImGui.DragInt("Max Progress (%)", ref Config.MaxProgress, 1, 0, 100);
+        ImGui.DragInt("Max Progress (%)", ref C.MaxProgress, 1, 0, 100);
         ImGui.SameLine();
-        ImGuiX.ResetButton(ref Config.MaxProgress, 90);
+        ImGuiX.ResetButton(ref C.MaxProgress, 90);
 
         ImGuiX.DrawSection("Fate Window Options");
-        ImGui.Checkbox("Show Time Remaining", ref Config.ShowFateTimeRemaining);
-        ImGui.Checkbox("Show Bonus Indicator", ref Config.ShowFateBonusIndicator);
-        ImGui.Checkbox("Change Instances (Requires Lifestream)", ref Config.ChangeInstances);
+        ImGui.Checkbox("Show Time Remaining", ref C.ShowFateTimeRemaining);
+        ImGui.Checkbox("Show Bonus Indicator", ref C.ShowFateBonusIndicator);
+        ImGui.Checkbox("Change Instances (Requires Lifestream)", ref C.ChangeInstances);
     }
 
-    public override void Enable()
+    public void Enable()
     {
         EzConfigGui.WindowSystem.AddWindow(new FateTrackerUI(this));
         random = new();
         Svc.Framework.Update += OnUpdate;
     }
 
-    public override void Disable()
+    public void Disable()
     {
         EzConfigGui.RemoveWindow<FateTrackerUI>();
         Svc.Framework.Update -= OnUpdate;
     }
 
-    [CommandHandler("/vfate", "Opens the FATE tracker")]
-    private void OnCommand(string command, string arguments) => EzConfigGui.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
+    //[CommandHandler("/vfate", "Opens the FATE tracker")]
+    public static void OnCommand(string command, string arguments) => EzConfigGui.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
 
     private int _successiveInstanceChanges = 0;
     private readonly int _distanceToTargetAetheryte = 50; // object.IsTargetable has a larger range than actually clickable
 
     private unsafe void OnUpdate(IFramework framework)
     {
-        P.TaskManager.AbortOnTimeout = Config.AbortTasksOnTimeout;
+        P.TaskManager.AbortOnTimeout = C.AbortTasksOnTimeout;
 
         if (!Player.Available || P.TaskManager.IsBusy) return;
 
@@ -260,9 +227,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                 Svc.Log.Info("State Change: " + State.ToString());
                 return;
             case DateWithDestinyState.Mounting:
-                if ((Config.FullAuto || Config.AutoMount) && !PlayerEx.Occupied && !(Svc.Condition[ConditionFlag.Mounted] || Svc.Condition[ConditionFlag.Mounted2]))
+                if ((C.FullAuto || C.AutoMount) && !PlayerEx.Occupied && !(Svc.Condition[ConditionFlag.Mounted] || Svc.Condition[ConditionFlag.Mounted2]))
                     ExecuteMount();
-                else if ((Config.FullAuto || Config.AutoFly) && !PlayerEx.Occupied && Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
+                else if ((C.FullAuto || C.AutoFly) && !PlayerEx.Occupied && Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight])
                     ExecuteJump();
                 else if (Svc.Condition[ConditionFlag.InFlight])
                 {
@@ -280,7 +247,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                     return;
                 }
 
-                if (Config.EquipWatch && HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
+                if (C.EquipWatch && HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
                     PlayerEx.Equip(15222);
 
                 if (!P.Navmesh.PathfindInProgress() && !P.Navmesh.IsRunning())
@@ -311,7 +278,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
                     var target = Svc.Targets.Target;
                     if (P.Navmesh.IsRunning() && Svc.Targets.Target?.ObjectKind == ObjectKind.BattleNpc &&
-                        (DistanceToTarget() < 2 || target != null && DistanceToHitboxEdge(target.HitboxRadius) <= (Config.StayInMeleeRange ? 0 : 15)))
+                        (DistanceToTarget() < 2 || target != null && DistanceToHitboxEdge(target.HitboxRadius) <= (C.StayInMeleeRange ? 0 : 15)))
                     {
                         P.Navmesh.Stop();
                         return;
@@ -333,7 +300,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
                     if (target != null)
                     {
                         TargetPos = target.Position;
-                        if ((Config.FullAuto || Config.AutoMoveToMobs) && (Svc.Targets.Target == null || !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15))))
+                        if ((C.FullAuto || C.AutoMoveToMobs) && (Svc.Targets.Target == null || !IsInMeleeRange(target.HitboxRadius + (C.StayInMeleeRange ? 0 : 15))))
                         {
                             TargetAndMoveToEnemy(target);
                             return;
@@ -359,7 +326,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     {
         if (YokaiMinions.Contains(CurrentCompanion))
         {
-            if (Config.EquipWatch && HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
+            if (C.EquipWatch && HaveYokaiMinionsMissing() && !HasWatchEquipped() && GetItemCount(YokaiWatch) > 0)
                 PlayerEx.Equip(15222);
 
             var medal = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Medal;
@@ -367,7 +334,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             {
                 Svc.Log.Debug("Have 10 of the relevant Legendary Medal. Swapping minions");
                 var minion = Yokai.FirstOrDefault(x => CompanionUnlocked(x.Minion) && GetItemCount(x.Medal) < 10 && GetItemCount(x.Weapon) < 1).Minion;
-                if (Config.SwapMinions && minion != default)
+                if (C.SwapMinions && minion != default)
                 {
                     ECommons.Automation.Chat.Instance.SendMessage($"/minion {GetRow<Companion>(minion)?.Singular}");
                     return;
@@ -375,7 +342,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             }
 
             var zones = Yokai.FirstOrDefault(x => x.Minion == CurrentCompanion).Zones;
-            if (Config.SwapZones && !zones.Contains((Z)Svc.ClientState.TerritoryType))
+            if (C.SwapZones && !zones.Contains((Z)Svc.ClientState.TerritoryType))
             {
                 Svc.Log.Debug("Have Yokai minion equipped but not in appropiate zone. Teleporting");
                 if (!Svc.Condition[ConditionFlag.Casting])
@@ -397,7 +364,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
             var closestAetheryte = Coords.GetNearestAetheryte(Svc.ClientState.TerritoryType, targetPos);
 
             if (closestAetheryte != 0)
-                if ((Config.FullAuto || Config.AutoFly) && Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight] && PlayerEx.InFlightAllowedTerritory)
+                if ((C.FullAuto || C.AutoFly) && Svc.Condition[ConditionFlag.Mounted] && !Svc.Condition[ConditionFlag.InFlight] && PlayerEx.InFlightAllowedTerritory)
                 {
                     var aetheryteTravelDistance = Coords.GetDistanceToAetheryte(closestAetheryte, targetPos) + teleportTimePenalty;
                     if (aetheryteTravelDistance < directTravelDistance) // if the closest aetheryte is a shortcut, then teleport
@@ -422,9 +389,9 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
     {
         if (Svc.Condition[ConditionFlag.Mounted]) ExecuteDismount();
         TargetPos = target.Position;
-        if ((Config.FullAuto || Config.AutoTarget) && Svc.Targets.Target?.GameObjectId != target.GameObjectId)
+        if ((C.FullAuto || C.AutoTarget) && Svc.Targets.Target?.GameObjectId != target.GameObjectId)
             Svc.Targets.Target = target;
-        if ((Config.FullAuto || Config.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && !IsInMeleeRange(target.HitboxRadius + (Config.StayInMeleeRange ? 0 : 15)))
+        if ((C.FullAuto || C.AutoMoveToMobs) && !P.Navmesh.PathfindInProgress() && !IsInMeleeRange(target.HitboxRadius + (C.StayInMeleeRange ? 0 : 15)))
             P.Navmesh.PathfindAndMoveTo(TargetPos, false);
     }
 
@@ -516,15 +483,15 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
 
     private IOrderedEnumerable<IFate> GetFates() => Svc.Fates.Where(FateConditions)
         .OrderByDescending(x =>
-        Config.PrioritizeBonusFates
+        C.PrioritizeBonusFates
         && x.HasBonus
         && (
-        !Config.BonusWhenTwist
+        !C.BonusWhenTwist
         || Player.Status.FirstOrDefault(x => TwistOfFateStatusIDs.Contains(x.StatusId)) != null)
         )
-        .ThenByDescending(x => Config.PrioritizeStartedFates && x.Progress > 0)
+        .ThenByDescending(x => C.PrioritizeStartedFates && x.Progress > 0)
         .ThenBy(f => Vector3.Distance(PlayerEx.Position, f.Position));
-    public bool FateConditions(IFate f) => f.GameData.Value.Rule == 1 && f.State != Dalamud.Game.ClientState.Fates.FateState.Preparation && f.Duration <= Config.MaxDuration && f.Progress <= Config.MaxProgress && f.TimeRemaining > Config.MinTimeRemaining && !Config.blacklist.Contains(f.FateId);
+    public bool FateConditions(IFate f) => f.GameData.Value.Rule == 1 && f.State != Dalamud.Game.ClientState.Fates.FateState.Preparation && f.Duration <= C.MaxDuration && f.Progress <= C.MaxProgress && f.TimeRemaining > C.MinTimeRemaining && !C.blacklist.Contains(f.FateId);
 
     private unsafe DGameObject? GetMobTargetingPlayer()
         => Svc.Objects
@@ -547,7 +514,7 @@ internal class DateWithDestiny : Tweak<DateWithDestinyConfiguration>
         && x.Struct() != null && x.Struct()->FateId == FateID
         && Math.Sqrt(Math.Pow(x.Position.X - CurrentFate->Location.X, 2) + Math.Pow(x.Position.Z - CurrentFate->Location.Z, 2)) < CurrentFate->Radius)
         // Prioritize Forlorns if configured
-        .OrderByDescending(x => Config.PrioritizeForlorns && ForlornIDs.Contains(x.DataId))
+        .OrderByDescending(x => C.PrioritizeForlorns && ForlornIDs.Contains(x.DataId))
         // Prioritize enemies targeting us
         .ThenByDescending(x => x.IsTargetingPlayer())
         // Deprioritize mobs in combat with other players (hopefully avoid botlike pingpong behavior in trash fates)

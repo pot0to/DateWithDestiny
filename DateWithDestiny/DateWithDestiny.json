@@ -1,15 +1,15 @@
 {
-    "Author": "croizat",
-    "Name": "CBT (the plugin formerly known as Automaton)",
-    "Punchline": "Yet another tweaks collection plugin.",
-    "Description": "",
-    "InternalName": "Automaton",
-    "ApplicableVersion": "any",
-    "DalamudApiLevel": 11,
-    "IconUrl": "https://i.imgur.com/AVSzkMB.png",
-    "RepoUrl": "https://github.com/Jaksuhn/Automaton",
-    "Tags": [
-        "automation",
-        "plugin"
-    ]
+  "Author": "pot0to",
+  "Name": "Date with Destiny",
+  "Punchline": "Automatic FATE farming",
+  "Description": "",
+  "InternalName": "DateWithDestiny",
+  "ApplicableVersion": "any",
+  "DalamudApiLevel": 11,
+  "IconUrl": "https://i.imgur.com/AVSzkMB.png",
+  "RepoUrl": "https://github.com/pot0to/DateWithDestiny",
+  "Tags": [
+    "automation",
+    "plugin"
+  ]
 }

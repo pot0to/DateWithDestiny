@@ -1,4 +1,3 @@
-using DateWithDestiny.Configuration;
 using DateWithDestiny.IPC;
 using AutoRetainerAPI;
 using Dalamud.Plugin;
@@ -22,11 +21,10 @@ public class Plugin : IDalamudPlugin
     private readonly Config Config;
     public static Config C => P.Config;
 
-    public static readonly HashSet<Tweak> Tweaks = [];
     internal TaskManager TaskManager;
     internal AddonObserver AddonObserver;
 
-    internal Provider Provider;
+    //internal Provider Provider;
     internal NavmeshIPC Navmesh;
     internal AutoRetainerApi AutoRetainerAPI;
     internal LifestreamIPC Lifestream;
@@ -34,7 +32,7 @@ public class Plugin : IDalamudPlugin
     internal AutoRetainerIPC AutoRetainer;
     internal bool UsingARPostProcess;
 
-    internal Memory Memory = null!;
+    //internal Memory Memory = null!;
 
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
@@ -46,29 +44,30 @@ public class Plugin : IDalamudPlugin
 
         Svc.Framework.Update += EventWatcher;
 
-        EzCmd.Add(Command, OnCommand, $"Opens the {Name} menu");
+        EzCmd.Add(Command, DateWithDestiny.OnCommand, $"Opens the {Name} menu");
+        //EzConfigGui.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
         //EzConfigGui.Init(new HaselWindow().Draw, nameOverride: $"{Name} {VersionString}");
         //EzConfigGui.WindowSystem.AddWindow(new DebugWindow());
-        try
-        {
-            Memory = new();
-        }
-        catch (Exception ex)
-        {
-            Svc.Log.Error(ex, "Failed to initialize Memory");
-        }
+        //try
+        //{
+        //    Memory = new();
+        //}
+        //catch (Exception ex)
+        //{
+        //    Svc.Log.Error(ex, "Failed to initialize Memory");
+        //}
 
         AddonObserver = new();
         TaskManager = new();
-        Provider = new();
+        //Provider = new();
         Navmesh = new();
         AutoRetainerAPI = new();
         Lifestream = new();
         Deliveroo = new();
         AutoRetainer = new();
 
-        Svc.Framework.RunOnFrameworkThread(InitializeTweaks);
-        C.EnabledTweaks.CollectionChanged += OnChange;
+        //Svc.Framework.RunOnFrameworkThread(InitializeTweaks);
+        //C.EnabledTweaks.CollectionChanged += OnChange;
     }
 
     private bool inpvp = false;
@@ -86,29 +85,29 @@ public class Plugin : IDalamudPlugin
             inpvp = false;
     }
 
-    public static void OnChange(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        foreach (var t in Tweaks)
-        {
-            if (C.EnabledTweaks.Contains(t.InternalName) && !t.Enabled)
-                TryExecute(t.EnableInternal);
-            else if (!C.EnabledTweaks.Contains(t.InternalName) && t.Enabled || t.Enabled && t.IsDebug && !C.ShowDebug)
-                t.DisableInternal();
-            EzConfig.Save();
-        }
-    }
+    //public static void OnChange(object? sender, NotifyCollectionChangedEventArgs e)
+    //{
+    //    foreach (var t in Tweaks)
+    //    {
+    //        if (C.EnabledTweaks.Contains(t.InternalName) && !t.Enabled)
+    //            TryExecute(t.EnableInternal);
+    //        else if (!C.EnabledTweaks.Contains(t.InternalName) && t.Enabled || t.Enabled && t.IsDebug && !C.ShowDebug)
+    //            t.DisableInternal();
+    //        EzConfig.Save();
+    //    }
+    //}
 
     public void Dispose()
     {
-        foreach (var tweak in Tweaks)
-        {
-            Svc.Log.Debug($"Disposing {tweak.InternalName}");
-            TryExecute(tweak.DisposeInternal);
-        }
+        //foreach (var tweak in Tweaks)
+        //{
+        //    Svc.Log.Debug($"Disposing {tweak.InternalName}");
+        //    TryExecute(tweak.DisposeInternal);
+        //}
         Svc.Framework.Update -= EventWatcher;
-        C.EnabledTweaks.CollectionChanged -= OnChange;
+        //C.EnabledTweaks.CollectionChanged -= OnChange;
         AddonObserver.Dispose();
-        Memory?.Dispose();
+        //Memory?.Dispose();
         ECommonsMain.Dispose();
     }
 
@@ -120,31 +119,31 @@ public class Plugin : IDalamudPlugin
         EzConfigGui.Window.Toggle();
     }
 
-    private void InitializeTweaks()
-    {
-        foreach (var tweakType in GetType().Assembly.GetTypes().Where(type => type.Namespace == "Automaton.Features" && type.GetCustomAttribute<TweakAttribute>() != null))
-        {
-            Svc.Log.Verbose($"Initializing {tweakType.Name}");
-            try
-            {
-                Tweaks.Add((Tweak)Activator.CreateInstance(tweakType)!);
-            }
-            catch (Exception ex)
-            {
-                Svc.Log.Error($"Failed to initialize {tweakType.Name}", ex);
-            }
-        }
+    //private void InitializeTweaks()
+    //{
+    //    foreach (var tweakType in GetType().Assembly.GetTypes().Where(type => type.Namespace == "Automaton.Features" && type.GetCustomAttribute<TweakAttribute>() != null))
+    //    {
+    //        Svc.Log.Verbose($"Initializing {tweakType.Name}");
+    //        try
+    //        {
+    //            Tweaks.Add((Tweak)Activator.CreateInstance(tweakType)!);
+    //        }
+    //        catch (Exception ex)
+    //        {
+    //            Svc.Log.Error($"Failed to initialize {tweakType.Name}", ex);
+    //        }
+    //    }
 
-        foreach (var tweak in Tweaks)
-        {
-            if (!Config.EnabledTweaks.Contains(tweak.InternalName))
-                continue;
+    //    foreach (var tweak in Tweaks)
+    //    {
+    //        if (!Config.EnabledTweaks.Contains(tweak.InternalName))
+    //            continue;
 
-            if (Config.EnabledTweaks.Contains(tweak.InternalName) && tweak.IsDebug && !Config.ShowDebug)
-                Config.EnabledTweaks.Remove(tweak.InternalName);
+    //        if (Config.EnabledTweaks.Contains(tweak.InternalName) && tweak.IsDebug && !Config.ShowDebug)
+    //            Config.EnabledTweaks.Remove(tweak.InternalName);
 
-            TryExecute(tweak.EnableInternal);
-        }
-    }
+    //        TryExecute(tweak.EnableInternal);
+    //    }
+    //}
 }
 

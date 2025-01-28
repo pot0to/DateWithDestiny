@@ -1,5 +1,3 @@
-global using DateWithDestiny.FeaturesSetup;
-global using DateWithDestiny.FeaturesSetup.Attributes;
 global using DateWithDestiny.Utilities;
 global using Dalamud.Game.Addon.Lifecycle;
 global using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
