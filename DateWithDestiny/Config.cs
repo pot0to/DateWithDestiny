@@ -1,5 +1,6 @@
 using ECommons.Configuration;
 using System.Collections.ObjectModel;
+using System.Text;
 using System.Text.Json.Serialization;
 using YamlDotNet.Serialization;
 
@@ -36,4 +37,30 @@ public class Config : IEzConfig
     public bool ShowFateBonusIndicator;
 
     public bool AbortTasksOnTimeout;
+}
+
+public class YamlFactory : ISerializationFactory
+{
+    public string DefaultConfigFileName => $"ezAutomaton.yaml";
+
+    public bool IsBinary => false;
+
+    public T Deserialize<T>(string inputData)
+    {
+        return new DeserializerBuilder()
+            .IgnoreUnmatchedProperties()
+            .Build().Deserialize<T>(inputData);
+    }
+
+    public T? Deserialize<T>(byte[] inputData) => throw new NotImplementedException();
+
+    //public T? Deserialize<T>(byte[] inputData) => throw new NotImplementedException();
+
+    public string Serialize(object s, bool prettyPrint)
+    {
+        return new SerializerBuilder().Build().Serialize(s);
+    }
+
+    public string? Serialize(object config) => Serialize(config, false);
+    public byte[]? SerializeAsBin(object config) => Encoding.UTF8.GetBytes(Serialize(config) ?? "");
 }

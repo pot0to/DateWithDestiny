@@ -1,4 +1,5 @@
-﻿using Dalamud.Interface;
+﻿using DateWithDestiny.Utilities;
+using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
@@ -23,18 +24,28 @@ internal class FateTrackerUI(DateWithDestiny tweak) : Window($"Fate Tracker##{na
 
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
-        ImGui.TextUnformatted($"Status: {(_tweak.active ? "on" : "off")} (Yo-Kai: {(C.YokaiMode ? "on" : "off")})");
-        ImGui.TableNextColumn();
+        //ImGui.TextUnformatted($"Status: {(_tweak.active ? "on" : "off")}"); // (Yo-Kai: {(Plugin.Config.YokaiMode ? "on" : "off")})");
         //ImGui.SetColumnOffset(1, ImGui.GetContentRegionAvail().X - 2 * ImGuiX.IconUnitWidth() - ImGuiHelpers.GetButtonSize("1500").X);
         if (ImGuiComponents.IconButton(!_tweak.active ? FontAwesomeIcon.Play : FontAwesomeIcon.Stop))
         {
             _tweak.active ^= true;
-            P.Navmesh.Stop();
+            if (_tweak.active)
+            {
+                _tweak.Enable();
+            }
+            else
+            {
+                _tweak.Disable();
+            }
         }
-        ImGui.SameLine();
+        ImGui.TableNextColumn();
+        var bicolorGemstoneCount = InventoryManager.Instance()->GetInventoryItemCount(26807).ToString();
+        var bicolorGemstoneX = ImGui.GetWindowWidth() - ImGui.CalcTextSize(bicolorGemstoneCount).X - ImGuiX.IconUnitHeight() - ImGui.GetStyle().ItemSpacing.X;
+        ImGui.SetCursorPosX(bicolorGemstoneX);
+        //ImGui.SameLine();
         ImGui.Image(Svc.Texture.GetFromGameIcon(new Dalamud.Interface.Textures.GameIconLookup(065071)).GetWrapOrEmpty().ImGuiHandle, new Vector2(ImGuiX.IconUnitHeight()));
         ImGui.SameLine();
-        ImGui.TextUnformatted(InventoryManager.Instance()->GetInventoryItemCount(26807).ToString());
+        ImGui.TextUnformatted(bicolorGemstoneCount);
 
         //ImGui.SameLine();
         //if (ImGuiComponents.IconButtonWithText((FontAwesomeIcon)0xf002, "Browse"))
@@ -69,15 +80,15 @@ internal class FateTrackerUI(DateWithDestiny tweak) : Window($"Fate Tracker##{na
 
             ImGui.SameLine();
 
-            if (C.ShowFateBonusIndicator && fate.HasBonus)
+            if (Plugin.Config.ShowFateBonusIndicator && fate.HasBonus)
             {
                 ImGui.Image(Svc.Texture.GetFromGameIcon(new Dalamud.Interface.Textures.GameIconLookup(65001)).GetWrapOrEmpty().ImGuiHandle, new Vector2(ImGuiX.IconUnitHeight()));
 
                 ImGui.SameLine();
             }
 
-            var nameColour = _tweak.FateConditions(fate) ? new Vector4(1, 1, 1, 1) : C.blacklist.Contains(fate.FateId) ? new Vector4(1, 0, 0, 0.5f) : new Vector4(1, 1, 1, 0.5f);
-            ImGuiEx.TextV(nameColour, $"{fate.Name} {(C.ShowFateTimeRemaining && fate.TimeRemaining >= 0 ? new TimeSpan(0, 0, (int)fate.TimeRemaining) : string.Empty)}");
+            var nameColour = _tweak.FateConditions(fate) ? new Vector4(1, 1, 1, 1) : Plugin.Config.blacklist.Contains(fate.FateId) ? new Vector4(1, 0, 0, 0.5f) : new Vector4(1, 1, 1, 0.5f);
+            ImGuiEx.TextV(nameColour, $"{fate.Name} {(Plugin.Config.ShowFateTimeRemaining && fate.TimeRemaining >= 0 ? new global::System.TimeSpan(0, 0, (int)fate.TimeRemaining) : string.Empty)}");
             if (ImGui.IsItemHovered()) ImGui.SetTooltip($"[{fate.FateId}] {fate.Position} {fate.Progress}%% {fate.TimeRemaining}/{fate.Duration}\nFate {(_tweak.FateConditions(fate) ? "meets" : "doesn't meet")} conditions and {(_tweak.FateConditions(fate) ? "will" : "won't")} be pathed to in auto mode.");
 
             ImGui.TableNextColumn();
@@ -89,12 +100,12 @@ internal class FateTrackerUI(DateWithDestiny tweak) : Window($"Fate Tracker##{na
             ImGui.SetCursorPosX(ImGui.GetContentRegionMax().X - ImGuiX.IconUnitWidth() - ImGui.GetStyle().WindowPadding.X);
             if (ImGuiComponents.IconButton($"###Blacklist{fate.FateId}", FontAwesomeIcon.Ban))
             {
-                C.blacklist.Add(fate.FateId);
+                Plugin.Config.blacklist.Add(fate.FateId);
             }
             if (ImGui.IsItemHovered()) ImGui.SetTooltip($"Add to blacklist. Right click to remove.");
             if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
             {
-                C.blacklist.Remove(fate.FateId);
+                Plugin.Config.blacklist.Remove(fate.FateId);
             }
         }
     }

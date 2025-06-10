@@ -8,6 +8,7 @@ using ECommons.SimpleGui;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Reflection;
+using Dalamud.Interface.Windowing;
 
 namespace DateWithDestiny;
 
@@ -18,11 +19,14 @@ public class Plugin : IDalamudPlugin
     private const string Command = "/dwd";
 
     internal static Plugin P = null!;
-    private readonly Config Config;
-    public static Config C => P.Config;
+    public static Config Config = null!;
+    public Version Version { get; private set; } = null!;
+
+    internal DateWithDestiny DateWithDestiny;
 
     internal TaskManager TaskManager;
     internal AddonObserver AddonObserver;
+    public readonly WindowSystem WindowSystem = new("DateWithDestiny");
 
     //internal Provider Provider;
     internal NavmeshIPC Navmesh;
@@ -37,37 +41,28 @@ public class Plugin : IDalamudPlugin
     public Plugin(IDalamudPluginInterface pluginInterface)
     {
         P = this;
+        Version = P.GetType().Assembly.GetName().Version ?? new(0, 0);
         ECommonsMain.Init(pluginInterface, P, ECommons.Module.DalamudReflector, ECommons.Module.ObjectFunctions);
 
-        //EzConfig.DefaultSerializationFactory = new YamlFactory();
+        EzConfig.DefaultSerializationFactory = new YamlFactory();
         Config = EzConfig.Init<Config>();
 
         Svc.Framework.Update += EventWatcher;
 
-        EzCmd.Add(Command, DateWithDestiny.OnCommand, $"Opens the {Name} menu");
-        //EzConfigGui.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
-        //EzConfigGui.Init(new HaselWindow().Draw, nameOverride: $"{Name} {VersionString}");
-        //EzConfigGui.WindowSystem.AddWindow(new DebugWindow());
-        //try
-        //{
-        //    Memory = new();
-        //}
-        //catch (Exception ex)
-        //{
-        //    Svc.Log.Error(ex, "Failed to initialize Memory");
-        //}
-
         AddonObserver = new();
         TaskManager = new();
-        //Provider = new();
         Navmesh = new();
         AutoRetainerAPI = new();
         Lifestream = new();
         Deliveroo = new();
         AutoRetainer = new();
 
-        //Svc.Framework.RunOnFrameworkThread(InitializeTweaks);
-        //C.EnabledTweaks.CollectionChanged += OnChange;
+        DateWithDestiny = new DateWithDestiny();
+
+        EzCmd.Add(Command, DateWithDestiny.OnCommand, $"Opens the {Name} menu");
+        var gui = new FateTrackerUI(DateWithDestiny);
+        EzConfigGui.Init(gui.Draw, nameOverride: $"{Name} v{P.Version.ToString(2)}");
+        EzConfigGui.WindowSystem.AddWindow(gui);
     }
 
     private bool inpvp = false;
@@ -85,65 +80,12 @@ public class Plugin : IDalamudPlugin
             inpvp = false;
     }
 
-    //public static void OnChange(object? sender, NotifyCollectionChangedEventArgs e)
-    //{
-    //    foreach (var t in Tweaks)
-    //    {
-    //        if (C.EnabledTweaks.Contains(t.InternalName) && !t.Enabled)
-    //            TryExecute(t.EnableInternal);
-    //        else if (!C.EnabledTweaks.Contains(t.InternalName) && t.Enabled || t.Enabled && t.IsDebug && !C.ShowDebug)
-    //            t.DisableInternal();
-    //        EzConfig.Save();
-    //    }
-    //}
-
     public void Dispose()
     {
-        //foreach (var tweak in Tweaks)
-        //{
-        //    Svc.Log.Debug($"Disposing {tweak.InternalName}");
-        //    TryExecute(tweak.DisposeInternal);
-        //}
         Svc.Framework.Update -= EventWatcher;
-        //C.EnabledTweaks.CollectionChanged -= OnChange;
         AddonObserver.Dispose();
-        //Memory?.Dispose();
         ECommonsMain.Dispose();
     }
 
-    private void OnCommand(string command, string args)
-    {
-        //if (args.StartsWith('d'))
-            //EzConfigGui.GetWindow<DebugWindow>()!.Toggle();
-        //else
-        EzConfigGui.Window.Toggle();
-    }
-
-    //private void InitializeTweaks()
-    //{
-    //    foreach (var tweakType in GetType().Assembly.GetTypes().Where(type => type.Namespace == "Automaton.Features" && type.GetCustomAttribute<TweakAttribute>() != null))
-    //    {
-    //        Svc.Log.Verbose($"Initializing {tweakType.Name}");
-    //        try
-    //        {
-    //            Tweaks.Add((Tweak)Activator.CreateInstance(tweakType)!);
-    //        }
-    //        catch (Exception ex)
-    //        {
-    //            Svc.Log.Error($"Failed to initialize {tweakType.Name}", ex);
-    //        }
-    //    }
-
-    //    foreach (var tweak in Tweaks)
-    //    {
-    //        if (!Config.EnabledTweaks.Contains(tweak.InternalName))
-    //            continue;
-
-    //        if (Config.EnabledTweaks.Contains(tweak.InternalName) && tweak.IsDebug && !Config.ShowDebug)
-    //            Config.EnabledTweaks.Remove(tweak.InternalName);
-
-    //        TryExecute(tweak.EnableInternal);
-    //    }
-    //}
+    private void OnCommand(string command, string args) => EzConfigGui.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
 }
-
