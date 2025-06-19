@@ -46,6 +46,13 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <Compile Remove="Utilities\AddonObserver.cs" />
+      <Compile Remove="Utilities\Angle.cs" />
+      <Compile Remove="Utilities\Movement\OverrideCamera.cs" />
+      <Compile Remove="Utilities\Movement\OverrideMovement.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
       <None Remove="Assets\rat.png" />
     </ItemGroup>
 
@@ -102,5 +109,9 @@
     <ItemGroup>
         <ProjectReference Include="..\AutoRetainerAPI\AutoRetainerAPI\AutoRetainerAPI.csproj" />
         <ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Utilities\Movement\" />
     </ItemGroup>
 </Project>

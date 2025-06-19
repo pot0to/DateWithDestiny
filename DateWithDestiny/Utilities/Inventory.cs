@@ -4,7 +4,7 @@ using Lumina.Excel.Sheets;
 
 namespace DateWithDestiny.Utilities;
 #nullable disable
-public class Inventory
+public unsafe class Inventory
 {
     public static readonly InventoryType[] PlayerInventory =
     [
@@ -41,7 +41,7 @@ public class Inventory
     public static readonly InventoryType[] Armory = [.. MainOffHand, .. LeftSideArmory, .. RightSideArmory, InventoryType.ArmorySoulCrystal];
     public static readonly InventoryType[] Equippable = [.. PlayerInventory, .. Armory];
 
-    public static unsafe (InventoryType inv, int slot)? GetItemLocationInInventory(uint itemId, IEnumerable<InventoryType> inventories)
+    public static (InventoryType inv, int slot)? GetItemLocationInInventory(uint itemId, IEnumerable<InventoryType> inventories)
     {
         foreach (var inv in inventories)
         {
@@ -53,8 +53,8 @@ public class Inventory
         return null;
     }
 
-    public static unsafe bool HasItem(uint itemId) => GetItemInInventory(itemId, Equippable) != null;
-    public static unsafe bool HasItemEquipped(uint itemId)
+    public static bool HasItem(uint itemId) => GetItemInInventory(itemId, Equippable) != null;
+    public static bool HasItemEquipped(uint itemId)
     {
         var cont = InventoryManager.Instance()->GetInventoryContainer(InventoryType.EquippedItems);
         for (var i = 0; i < cont->Size; ++i)
@@ -63,7 +63,7 @@ public class Inventory
         return false;
     }
 
-    public static unsafe InventoryItem* GetItemInInventory(uint itemId, IEnumerable<InventoryType> inventories, bool mustBeHQ = false)
+    public static InventoryItem* GetItemInInventory(uint itemId, IEnumerable<InventoryType> inventories, bool mustBeHQ = false)
     {
         foreach (var inv in inventories)
         {
@@ -75,7 +75,7 @@ public class Inventory
         return null;
     }
 
-    public static unsafe List<Pointer<InventoryItem>> GetHQItems(IEnumerable<InventoryType> inventories)
+    public static List<Pointer<InventoryItem>> GetHQItems(IEnumerable<InventoryType> inventories)
     {
         List<Pointer<InventoryItem>> items = [];
         foreach (var inv in inventories)
@@ -88,7 +88,7 @@ public class Inventory
         return items;
     }
 
-    public static unsafe List<Pointer<InventoryItem>> GetDesynthableItems(IEnumerable<InventoryType> inventories)
+    public static List<Pointer<InventoryItem>> GetDesynthableItems(IEnumerable<InventoryType> inventories)
     {
         List<Pointer<InventoryItem>> items = [];
         foreach (var inv in inventories)
@@ -101,7 +101,7 @@ public class Inventory
         return items;
     }
 
-    public static unsafe uint GetEmptySlots(IEnumerable<InventoryType> inventories = null)
+    public static uint GetEmptySlots(IEnumerable<InventoryType> inventories = null)
     {
         if (inventories == null)
             return InventoryManager.Instance()->GetEmptySlotsInBag();
@@ -118,4 +118,6 @@ public class Inventory
             return count;
         }
     }
+
+    public static int GetItemCount(uint itemID) => InventoryManager.Instance()->GetInventoryItemCount(itemID);
 }

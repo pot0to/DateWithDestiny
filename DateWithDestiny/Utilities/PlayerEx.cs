@@ -1,4 +1,4 @@
-﻿using DateWithDestiny.Utilities.Movement;
+﻿//using DateWithDestiny.Utilities.Movement;
 using ECommons.Automation;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
@@ -14,6 +14,7 @@ namespace DateWithDestiny.Utilities;
 
 public static unsafe class PlayerEx
 {
+    public static Vector3 Coordinates => Svc.ClientState.LocalPlayer.Position;
     public static Character* Character => (Character*)Svc.ClientState.LocalPlayer.Address;
     public static BattleChara* BattleChara => (BattleChara*)Svc.ClientState.LocalPlayer.Address;
     public static CSGameObject* GameObject => (CSGameObject*)Svc.ClientState.LocalPlayer.Address;
@@ -22,7 +23,6 @@ public static unsafe class PlayerEx
 
     //public static PlayerController* Controller => (PlayerController*)Svc.SigScanner.GetStaticAddressFromSig(Memory.Signatures.PlayerController);
     public static bool HasPenalty => FFXIVClientStructs.FFXIV.Client.Game.UI.InstanceContent.Instance()->GetPenaltyRemainingInMinutes(0) > 0;
-    public static bool InPvP => GameMain.IsInPvPInstance();
     public static bool InFlightAllowedTerritory => GetRow<TerritoryType>(Svc.ClientState.TerritoryType)?.AetherCurrentCompFlgSet.RowId != 0;
     public static bool AllowedToFly => PlayerState.Instance()->IsAetherCurrentZoneComplete(Svc.ClientState.TerritoryType);
     public static Vector3 Position { get => Svc.ClientState.LocalPlayer.Position; set => GameObject->SetPosition(value.X, value.Y, value.Z); }
@@ -35,9 +35,7 @@ public static unsafe class PlayerEx
     public static FlagMapMarker MapFlag => AgentMap.Instance()->FlagMapMarker;
 
     public static unsafe Camera* Camera => CameraManager.Instance()->GetActiveCamera();
-    public static unsafe CameraEx* CameraEx => (CameraEx*)CameraManager.Instance()->GetActiveCamera();
-
-    public static List<MapMarkerData> QuestLocations => FFXIVClientStructs.FFXIV.Client.Game.UI.Map.Instance()->QuestMarkers.ToArray().SelectMany(i => i.MarkerData.ToList()).ToList();
+    //public static unsafe CameraEx* CameraEx => (CameraEx*)CameraManager.Instance()->GetActiveCamera();
 
     private static int EquipAttemptLoops = 0;
     public static void Equip(uint itemID)

@@ -9,6 +9,7 @@ using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Reflection;
 using Dalamud.Interface.Windowing;
+using Dalamud.Game.Command;
 
 namespace DateWithDestiny;
 
@@ -16,17 +17,18 @@ public class Plugin : IDalamudPlugin
 {
     public static string Name => "DateWithDestiny";
     public static string VersionString => $"v{P.GetType().Assembly.GetName().Version?.Major}.{P.GetType().Assembly.GetName().Version?.Minor}";
-    private const string Command = "/dwd";
+    private const string CommandName = "/dwd";
 
     internal static Plugin P = null!;
-    public static Config Config = null!;
+    public Config Config = null!;
     public Version Version { get; private set; } = null!;
 
     internal DateWithDestiny DateWithDestiny;
 
     internal TaskManager TaskManager;
-    internal AddonObserver AddonObserver;
+    //internal AddonObserver AddonObserver;
     public readonly WindowSystem WindowSystem = new("DateWithDestiny");
+    private MainWindow MainWindow { get; init; }
 
     //internal Provider Provider;
     internal NavmeshIPC Navmesh;
@@ -49,7 +51,7 @@ public class Plugin : IDalamudPlugin
 
         Svc.Framework.Update += EventWatcher;
 
-        AddonObserver = new();
+        //AddonObserver = new();
         TaskManager = new();
         Navmesh = new();
         AutoRetainerAPI = new();
@@ -59,33 +61,30 @@ public class Plugin : IDalamudPlugin
 
         DateWithDestiny = new DateWithDestiny();
 
-        EzCmd.Add(Command, DateWithDestiny.OnCommand, $"Opens the {Name} menu");
-        var gui = new FateTrackerUI(DateWithDestiny);
-        EzConfigGui.Init(gui.Draw, nameOverride: $"{Name} v{P.Version.ToString(2)}");
-        EzConfigGui.WindowSystem.AddWindow(gui);
+        Svc.Commands.AddHandler(CommandName, new CommandInfo(OnCommand)
+        {
+            HelpMessage = "Toggle open DateWithDestiny window."
+        });
+        MainWindow = new MainWindow(DateWithDestiny);
+        WindowSystem.AddWindow(MainWindow);
+
+        pluginInterface.UiBuilder.Draw += DrawUI;
+        pluginInterface.UiBuilder.OpenMainUi += ToggleMainUI;
     }
 
-    private bool inpvp = false;
     private void EventWatcher(IFramework framework)
     {
-        if (PlayerEx.InPvP)
-        {
-            if (!inpvp)
-            {
-                inpvp = true;
-                Events.OnEnteredPvPInstance();
-            }
-        }
-        else
-            inpvp = false;
     }
 
     public void Dispose()
     {
         Svc.Framework.Update -= EventWatcher;
-        AddonObserver.Dispose();
+        //AddonObserver.Dispose();
         ECommonsMain.Dispose();
     }
 
-    private void OnCommand(string command, string args) => EzConfigGui.GetWindow<FateTrackerUI>()!.IsOpen ^= true;
+    private void OnCommand(string command, string args) => EzConfigGui.GetWindow<MainWindow>()!.IsOpen ^= true;
+
+    private void DrawUI() => WindowSystem.Draw();
+    public void ToggleMainUI() => MainWindow.Toggle();
 }

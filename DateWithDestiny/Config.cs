@@ -22,9 +22,9 @@ public class Config : IEzConfig
     public bool SwapZones = true;
     public bool ChangeInstances = true;
 
-    public bool FullAuto = true;
-    public bool AutoMount = true;
-    public bool AutoFly = true;
+    //public bool FullAuto = true;
+    //public bool AutoMount = true;
+    //public bool AutoFly = true;
     public bool PathToFate = true;
     public bool AutoSync = true;
     public bool AutoTarget = true;
@@ -37,6 +37,10 @@ public class Config : IEzConfig
     public bool ShowFateBonusIndicator;
 
     public bool AbortTasksOnTimeout;
+
+    public int BicolorThreshold = 1400;
+    public ulong BicolorShopId = 0;
+    public uint BicolorPurchaseItem = 0;
 }
 
 public class YamlFactory : ISerializationFactory

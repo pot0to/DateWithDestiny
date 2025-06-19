@@ -84,13 +84,6 @@ public static class Utils
     public static unsafe Structs.AgentMJICraftSchedule* Agent = (Structs.AgentMJICraftSchedule*)AgentModule.Instance()->GetAgentByInternalId(AgentId.MJICraftSchedule);
     public static unsafe Structs.AgentMJICraftSchedule.AgentData* AgentData => Agent != null ? Agent->Data : null;
 
-    public static unsafe void SetRestCycles(uint mask)
-    {
-        Svc.Log.Debug($"Setting rest: {mask:X}");
-        AgentData->NewRestCycles = mask;
-        SynthesizeEvent(5, [new() { Type = AtkValueType.Int, Int = 0 }]);
-    }
-
     private static unsafe void SynthesizeEvent(ulong eventKind, Span<AtkValue> args)
     {
         var eventData = stackalloc int[] { 0, 0, 0 };

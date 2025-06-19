@@ -3,69 +3,76 @@ using Dalamud.Game.Text.SeStringHandling.Payloads;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using Lumina.Excel.Sheets;
+using System.Security.Policy;
 
 namespace DateWithDestiny.Utilities;
 
 public static class Coords
 {
-    public static uint GetNearestAetheryte(MapMarkerData marker) => GetNearestAetheryte(marker.TerritoryTypeId, new Vector3(marker.X, marker.Y, marker.Z));
-    public static uint GetNearestAetheryte(FlagMapMarker flag) => GetNearestAetheryte((int)flag.TerritoryId, new Vector3(flag.XFloat, 0, flag.YFloat));
+    public static string GetAetheryteName(Aetheryte aetheryte) => aetheryte.PlaceName.Value.Name.GetText() + aetheryte.AethernetName.Value.Name.GetText();
 
-    public static uint GetNearestAetheryte(int zoneID, Vector3 pos)
+    public static Vector2 GetAetherytePosition(Aetheryte aetheryte)
     {
-        uint aetheryte = 0;
-        double distance = double.MaxValue;
-        foreach (var data in GetSheet<Aetheryte>())
+        var mapMarker = FindRow<MapMarker>(m =>
+                    m.DataType == (aetheryte.IsAetheryte ? 3 : 4) &&
+                    m.DataKey.RowId == (aetheryte.IsAetheryte ? aetheryte.RowId : aetheryte.AethernetName.RowId));
+        if (mapMarker == null)
         {
-            if (!data.IsAetheryte) continue;
-            if (!data.Territory.IsValid) continue;
-            if (!data.PlaceName.IsValid) continue;
-            if (data.Territory.Value.RowId == zoneID)
-            {
-                var mapMarker = FindRow<MapMarker>(m => m.DataType == 3 && m.DataKey.RowId == data.RowId);
-                if (mapMarker == null)
-                {
-                    Svc.Log.Error($"Cannot find aetherytes position for {zoneID}#{data.PlaceName.Value.Name}");
-                    continue;
-                }
+            Svc.Log.Error($"Cannot find map marker for aetheryte #{aetheryte.RowId}: {aetheryte.RowId}#{GetAetheryteName(aetheryte)}");
+            return Vector2.Zero;
+        }
+        var map = Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.Map>().FirstOrDefault(m => m.TerritoryType.RowId == aetheryte.Territory.Value.RowId);
+        var scale = map.SizeFactor;
 
-                //var AethersX = ConvertMapMarkerToMapCoordinate(mapMarker.X, 100);
-                //var AethersY = ConvertMapMarkerToMapCoordinate(mapMarker.Y, 100);
-                //var temp_distance = Vector3.Distance(new Vector3(AethersX, 0, AethersY), pos);
-                //if (temp_distance < distance)
-                var AethersX = ConvertMapMarkerToMapCoordinate(mapMarker.Value.X, 100);
-                var AethersY = ConvertMapMarkerToMapCoordinate(mapMarker.Value.Y, 100);
-                var temp_distance = Math.Pow(AethersX - pos.X, 2) + Math.Pow(AethersY - pos.Z, 2);
-                if (aetheryte == default || temp_distance < distance)
+        var AethersX = ConvertMapMarkerToRawPosition(mapMarker.Value.X, scale);
+        var AethersY = ConvertMapMarkerToRawPosition(mapMarker.Value.Y, scale);
+        Svc.Log.Debug($"Aetheryte Position for #{aetheryte.RowId}: {AethersX}, {AethersY}");
+
+        return new Vector2(AethersX, AethersY);
+    }
+
+    public static float GetDistanceToAetheryte(Aetheryte aetheryte, Vector3 pos)
+    {
+        var pos2d = new Vector2(pos.X, pos.Z);
+        var aetherytePos = GetAetherytePosition(aetheryte);
+        return Vector2.Distance(aetherytePos, pos2d);
+    }
+
+    public static Aetheryte? GetNearestAetheryte(MapMarkerData marker) => GetNearestAetheryte(marker.TerritoryTypeId, new Vector3(marker.X, marker.Y, marker.Z));
+    public static Aetheryte? GetNearestAetheryte(FlagMapMarker flag) => GetNearestAetheryte(flag.TerritoryId, new Vector3(flag.XFloat, 0, flag.YFloat));
+    public static Aetheryte? GetNearestAetheryte(uint zoneID, Vector3 pos)
+    {
+        Aetheryte? nearestAetheryte = null;
+        double distance = double.MaxValue;
+        foreach (var aetheryte in GetSheet<Aetheryte>())
+        {
+            //if (!data.IsAetheryte) continue;
+            if (!aetheryte.Territory.IsValid) continue;
+            //if (!aetheryte.PlaceName.IsValid) continue;
+            if (aetheryte.Territory.Value.RowId == zoneID)
+            {
+                var temp_distance = GetDistanceToAetheryte(aetheryte, pos);
+                Svc.Log.Info($"Distance from {aetheryte.PlaceName.Value.Name}{aetheryte.AethernetName.Value.Name}: {temp_distance}");
+                if (nearestAetheryte is null || temp_distance < distance)
                 {
                     distance = temp_distance;
-                    aetheryte = data.RowId;
+                    nearestAetheryte = aetheryte;
                 }
             }
         }
 
-        return aetheryte;
-    }
-
-    public static float GetDistanceToAetheryte(uint aetheryteId, Vector3 pos)
-    {
-        var mapMarker = FindRow<MapMarker>(m => m.DataType == 3 && m.DataKey.RowId == aetheryteId);
-        if (mapMarker == null)
-        {
-            Svc.Log.Error($"Cannot find aetherytes position for aetheryteId: {aetheryteId}");
-            return float.MaxValue;
-        }
-        else
-        {
-            Svc.Log.Debug("Player.Position: " + Player.Position.X + " " + Player.Position.Y + " " + Player.Position.Z);
-            var AethersX = ConvertMapMarkerToRawPosition(mapMarker.Value.X);
-            var AethersY = ConvertMapMarkerToRawPosition(mapMarker.Value.Y);
-            Svc.Log.Debug("Aetheryte Position: " + AethersX + " " + AethersY);
-            return Vector3.Distance(new Vector3(AethersX, pos.Y, AethersY), pos);
-        }
+        return nearestAetheryte;
     }
 
     public static uint? GetPrimaryAetheryte(uint zoneID) => FindRow<Aetheryte>(a => a.Territory.IsValid && a.Territory.Value.RowId == zoneID)?.RowId ?? null;
+
+    public static Aetheryte GetPrimaryAetheryte(Aetheryte aetheryte)
+    {
+        if (aetheryte.IsAetheryte)
+            return aetheryte;
+        else
+            return FindRow<Aetheryte>(a => a.IsAetheryte && a.AethernetGroup == aetheryte.AethernetGroup)!.Value;
+    }
 
     private static float ConvertMapMarkerToRawPosition(int pos, float scale = 100f)
     {
